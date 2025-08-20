@@ -230,5 +230,5 @@ final_preds = {sid: int(p > 0.5) for sid, p in final_probs.items()}
 
 ---
 
-**Autoría:** Proyecto académico — *COGNITIVA-AI: Detección temprana de Alzheimer con OASIS-2 (clínico + MRI).*  
+**Autoría:** Fran Ramírez  
 **Año:** 2025.

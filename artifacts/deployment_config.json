@@ -1,0 +1,29 @@
+{
+  "created_at": "2025-08-20T20:33:41",
+  "feature_columns": [
+    "Age",
+    "Education",
+    "SES",
+    "MMSE",
+    "CDR",
+    "eTIV",
+    "nWBV",
+    "ASF",
+    "Sex_M"
+  ],
+  "primary_models": {
+    "calibrated_risk": "model_lr_isotonic.pkl",
+    "ensemble_components": [
+      "model_lr_balanced.pkl",
+      "model_rf_balanced.pkl",
+      "model_xgb_balanced.pkl"
+    ],
+    "xgb_clinical": "model_xgb_balanced.pkl",
+    "xgb_clinical_calibrated": "model_xgb_isotonic.pkl"
+  },
+  "thresholds": {
+    "default": 0.5,
+    "clinical_high_recall_xgb": 0.029
+  },
+  "notes": "Use 'calibrated_risk' for calibrated probabilities; 'clinical_high_recall_xgb' when missing a case is costlier than a false positive."
+}
