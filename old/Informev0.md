@@ -97,6 +97,58 @@ Los conjuntos de datos **OASIS** proporcionan datos **abiertos y estandarizados*
 
 ---
 
+### 5.4 Mejoras avanzadas (COGNITIVA-AI-CLINIC-IMPROVED)
+
+Tras el pipeline básico, se implementaron pasos adicionales para **evaluar robustez, interpretabilidad y utilidad clínica**:
+
+#### ⚖️ Manejo del desbalanceo
+- Aunque las clases estaban moderadamente equilibradas (≈54% vs 46%), se probaron variantes con `class_weight='balanced'` y `scale_pos_weight` en XGBoost.
+- Se optimizó el **umbral de decisión** en función de criterios clínicos:
+  - Recall prioritario (detectar todos los casos de demencia).
+  - Umbral óptimo seleccionado: ≈0.03 → Recall ≈100%, con sacrificio de precisión (más falsos positivos).
+
+#### 🔍 Interpretabilidad
+- **Coeficientes (Logistic Regression):**
+  - `CDR` (peso más alto, coef ≈ +4.15)  
+  - `MMSE` (coef negativo fuerte ≈ -0.64)  
+  - `Educación` (coef positivo ≈ +0.76)  
+  - Variables volumétricas (`eTIV`, `nWBV`) con menor peso.
+- Conclusión: el modelo se alinea con la literatura clínica → CDR y MMSE son marcadores dominantes.
+
+#### 📏 Calibración
+- Se compararon modelos sin calibrar, con **Platt (sigmoid)** y con **isotónica**.
+- **Brier Scores (↓ mejor):**
+  - LR isotónica → 0.0099 (mejor calibración).  
+  - RF isotónica → 0.0170.  
+  - XGB isotónica → 0.0187.  
+- Conclusión: Logistic Regression, además de interpretable, ofrece las probabilidades más confiables.
+
+#### 🛡️ Robustez
+- **Nested Cross-Validation:** ROC-AUC = **0.985 ± 0.011** → rendimiento estable y poco dependiente del split.
+- **Ablation Study:**  
+  - Sin MMSE → ROC-AUC 1.000 (robusto).  
+  - Sin CDR → ROC-AUC cae a 0.86.  
+  - Sin MMSE + CDR → ROC-AUC 0.76.  
+  - Sin variables volumétricas → ROC-AUC ≈ 1.000.  
+  - Sin socioeducativas → ROC-AUC ≈ 0.998.  
+  → Conclusión: **CDR y MMSE son críticos**, las volumétricas aportan poco en este dataset reducido.
+
+#### 🤝 Ensembling
+- Promedio de probabilidades (LR + RF + XGB).  
+- Resultado: ROC-AUC = **0.995** → ligera mejora sobre cada modelo individual.
+
+---
+
+## 📊 Conclusiones integradas
+- **El pipeline clínico fusionado y mejorado (COGNITIVA-AI-CLINIC-IMPROVED)** alcanza resultados casi perfectos en validación (~0.98–0.99 ROC-AUC).
+- **Interpretabilidad:** confirma que **CDR y MMSE** son marcadores dominantes y clínicamente relevantes.
+- **Calibración:** LR calibrada por isotónica produce las probabilidades más fiables para aplicaciones clínicas.
+- **Umbral clínico:** favorece Recall (detectar todos los casos), aceptando falsos positivos como un coste asumible en screening.
+- **Robustez:** nested CV y ablation muestran consistencia del pipeline.
+- **Ensemble:** confirma la fortaleza del modelo combinado, pero la mejora sobre LR sola es marginal.
+
+---
+
 ## 6. Pipeline de Imágenes (MRI)
 
 ### 6.1 Preprocesamiento
