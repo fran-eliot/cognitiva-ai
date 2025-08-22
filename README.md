@@ -141,7 +141,9 @@ El objetivo fue **aumentar la robustez** uniendo ambas cohortes.
 
 # 📈 Visual comparativa (AUC)
 
-    - ![Gráfico de barras](./graficos/comparativa.png)
+<p align="center">
+  <img src="./graficos/comparativa.png" alt="Gráfico de barras" width="500"/>
+</p>
 
 ---
 
