@@ -139,14 +139,29 @@ El objetivo fue **aumentar la robustez** uniendo ambas cohortes.
 
 ---
 
-# 📈 Visual comparativa (AUC)
+# 📈 Visualizaciones clave
 
+### Comparativa global (AUC por pipeline)
 <p align="center">
-  <img src="./graficos/comparativa.png" alt="Gráfico de barras" width="500"/>
+  <img src="./graficos/comparativa.png" alt="Comparativa global AUC por pipeline" width="520"/>
+</p>
+
+### IMAGES-IMPROVED (paciente-nivel): Val vs Test (AUC)
+<p align="center">
+  <img src="./graficos/comparativa_images_improved_val_test_auc.png" alt="Val vs Test AUC (paciente)" width="460"/>
+</p>
+
+### IMAGES-IMPROVED (paciente-nivel): Val vs Test (PR-AUC)
+<p align="center">
+  <img src="./graficos/comparativa_images_improved_val_test_prauc.png" alt="Val vs Test PR-AUC (paciente)" width="460"/>
+</p>
+
+### IMAGES-IMPROVED (paciente-nivel): AUC y PR-AUC en una sola figura
+<p align="center">
+  <img src="./graficos/comparativa_images_improved_auc_prauc.png" alt="AUC y PR-AUC Val vs Test (paciente)" width="520"/>
 </p>
 
 ---
 
 **Autoría:** Fran Ramírez  
 **Año:** 2025
-
