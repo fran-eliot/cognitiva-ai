@@ -22,8 +22,7 @@ La **Enfermedad de Alzheimer (EA)** es neurodegenerativa y progresiva. Una detec
 - Planificar intervenciones.  
 - Reducir costes en fases avanzadas.  
 
-Los conjuntos de datos **OASIS** proporcionan datos **abiertos y estandarizados** tanto clínicos como de neuroimagen, idóneos para estudios académicos.  
-El objetivo de este trabajo es evaluar la capacidad predictiva de **modelos clásicos y de deep learning**, y sentar bases reproducibles para futuras mejoras multimodales.
+Los conjuntos de datos **OASIS** proporcionan datos **abiertos y estandarizados** tanto clínicos como de neuroimagen, idóneos para estudios académicos. El objetivo de este trabajo es evaluar la capacidad predictiva de **modelos clásicos y de deep learning** y sentar bases reproducibles para futuras mejoras multimodales.
 
 ---
 
