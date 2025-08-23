@@ -1,0 +1,6 @@
+Pipeline,ROC_AUC
+"Clínico (OASIS-2, XGB)",0.897
+"Clínico Fusión (OASIS-1+2, LR CV)",0.979
+"Imágenes (OASIS-2, ResNet50 5s)",0.938
+Clínico Fusión (Ensemble),0.995
+"Imágenes Mej. (GPU, Ensemble MRI)",0.744

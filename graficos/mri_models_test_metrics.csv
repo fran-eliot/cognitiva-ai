@@ -1,0 +1,6 @@
+Modelo,AUC_TEST,PR_AUC_TEST,Recall_TEST,Precision_TEST
+LR (slice→patient),0.724,0.606,0.8,0.52
+SVM (slice→patient),0.746,0.628,0.8,0.5
+XGB (slice→patient),0.733,0.605,0.85,0.59
+MLP (patient-features),0.732,0.703,0.85,0.53
+Ensemble (XGB+MLP),0.744,0.659,0.8,0.53

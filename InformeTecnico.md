@@ -1,188 +1,148 @@
-# COGNITIVA-AI — Detección Temprana de Alzheimer  
-**Informe Técnico (Formal)**
+# Informe Técnico — Proyecto COGNITIVA-AI
+
+## 1. Objetivo
+Explorar la **detección temprana de Alzheimer** mediante el uso combinado de **datos clínicos tabulares** y **resonancias magnéticas estructurales (MRI)**, replicando el razonamiento clínico.
 
 ---
 
-## 1. Resumen
-Este proyecto investiga la **detección temprana de Alzheimer** combinando **datos clínicos tabulares** y **resonancias magnéticas estructurales (MRI)** de los conjuntos **OASIS-1 y OASIS-2**.  
+## 2. Datos
 
-Se plantean cuatro pipelines:  
-1. **COGNITIVA-AI-CLINIC** → datos clínicos tabulares (baseline).  
-2. **COGNITIVA-AI-CLINIC-IMPROVED** → fusión OASIS-1+2 con calibración, interpretabilidad, robustez y ensembling.  
-3. **COGNITIVA-AI-IMAGES** → Deep Learning con MRI (ResNet50).  
-4. **COGNITIVA-AI-IMAGES-IMPROVED** → embeddings ResNet18 + clasificadores clásicos, calibración y evaluación paciente-nivel.  
+### OASIS-1
+- 416 sujetos, visita única.  
+- Sin variable `Group` → se derivó el target desde **CDR**.  
 
-Los resultados muestran que el pipeline clínico mejorado alcanza **ROC-AUC ≈ 0.985 (Nested CV)**, mientras que en imágenes:  
-- OASIS-2 puro (ResNet50 fine-tuning) logra **AUC=0.938** (paciente).  
-- OASIS-1+2 (ResNet18 embeddings + LR calibrado) logra **AUC=0.702 (test)**, confirmando la necesidad de optimizar fusión multimodal.  
+### OASIS-2
+- 150 sujetos, longitudinal.  
+- Variables `Group` (`Nondemented`, `Demented`, `Converted`).  
 
----
-
-## 2. Antecedentes y Motivación
-La **Enfermedad de Alzheimer (EA)** es neurodegenerativa y progresiva. Una detección temprana es clave para:  
-- Optimizar la atención clínica.  
-- Planificar intervenciones.  
-- Reducir costes en fases avanzadas.  
-
-Los conjuntos **OASIS** proporcionan datos **abiertos y estandarizados** tanto clínicos como de neuroimagen. Este trabajo evalúa la capacidad predictiva de **modelos clásicos y deep learning**, como base para futuros sistemas multimodales.
+### Unificación
+- Target binario (`0=Nondemented`, `1=Demented/Converted`).  
+- Control estricto de fugas de información:
+  - Clínico → baseline único por paciente.  
+  - MRI → splits por paciente/scan_id.  
 
 ---
 
-## 3. Datos
-- **OASIS-1 (Transversal):**  
-  - 416 sujetos, 434 sesiones.  
-  - Sin variable `Group`; severidad inferida con **CDR** (`0 = no demencia`, `>0 = demencia`).  
+## 3. Pipelines desarrollados
 
-- **OASIS-2 (Longitudinal):**  
-  - 150 sujetos, 373 sesiones.  
-  - Variable `Group`: {Nondemented, Demented, Converted}.  
-  - Varias visitas por sujeto.  
+### 3.1 COGNITIVA-AI-CLINIC
+- Dataset: OASIS-2.  
+- Variables: edad, sexo, educación, SES, MMSE, CDR, eTIV, nWBV, ASF.  
+- Modelos: LR, RF, XGB.  
+- Resultados: AUC test XGB = 0.897.  
 
-- **MRI:** archivos `.hdr/.img` por paciente, con segmentaciones asociadas (`FSL_SEG`).  
+### 3.2 COGNITIVA-AI-CLINIC-IMPROVED
+- Fusión OASIS-1+2.  
+- Unificación de columnas, selección baseline, target unificado.  
+- Validación cruzada: AUC≈0.975.  
+- Ensemble: AUC≈0.995.  
+- Conclusión: modelos clínicos son robustos y estables.  
 
-**Target binario:**  
-- `0 = Nondemented`  
-- `1 = Demented` o `Converted`  
+### 3.3 COGNITIVA-AI-IMAGES
+- Dataset: OASIS-2 MRI.  
+- Preprocesamiento: conversión a slices, normalización, augmentations.  
+- Modelo: ResNet50 fine-tuning.  
+- Resultados:  
+  - 5 slices: AUC=0.938.  
+  - 20 slices: AUC=0.858.  
 
----
+### 3.4 COGNITIVA-AI-IMAGES-IMPROVED
+- Objetivo: integrar OASIS-1+2 en MRI.  
+- Estado: en progreso.  
 
-## 4. Definición del Problema
-- **Tarea:** Clasificación binaria a nivel de **paciente**.  
-- **Retos:**  
-  - Evitar *data leakage*.  
-  - Manejo de múltiples visitas.  
-  - Tamaño reducido de muestra.  
-  - Preprocesamiento homogéneo entre cohortes.  
+### 3.5 COGNITIVA-AI-IMAGES-IMPROVED-GPU
+- Limitación: entrenamiento local inviable → migración a Google Colab con GPU (T4/A100/L4).  
+- Embeddings ResNet18 (512 dim).  
+- Clasificador baseline: LR calibrado.  
+- Resultados:  
+  - Slice-nivel: AUC≈0.66, Brier≈0.23.  
+  - Paciente-nivel: Recall≈0.80 con umbral clínico bajo.  
 
----
-
-## 5. Pipeline Clínico
-
-### 5.1 Preprocesamiento
-- Homogeneización de columnas (`snake_case`).  
-- Baseline en OASIS-2.  
-- Target unificado: `Group` (OASIS-2) y `CDR` (OASIS-1).  
-- Imputación SES/Educación.  
-- Codificación one-hot (`Sex`).  
-- Escalado estándar.  
-
-### 5.2 Modelos
-- LR, RF, XGB.  
-- Validación estratificada (5-fold).  
-- Métrica: ROC-AUC.  
-
-### 5.3 Resultados
-- **OASIS-2 (clínico):**  
-  - LR → 0.912 ± 0.050  
-  - RF → 0.925 ± 0.032  
-  - XGB → 0.907 ± 0.032  
-  - Mejor test: XGB = 0.897  
-
-- **Fusión OASIS-1+2:**  
-  - Hold-out: LR=1.000, RF=0.986, XGB=0.991  
-  - CV: LR=0.979 ± 0.012, RF=0.974 ± 0.018, XGB=0.975 ± 0.021  
-
-➡️ **Conclusión:** CDR + MMSE dominan el rendimiento, volumétricas aportan poco.
-
-### 5.4 Mejoras avanzadas
-- **Umbral clínico:** recall ≈ 100%, con 15 FP aceptables.  
-- **Calibración:** LR + Isotónica (Brier=0.010).  
-- **Robustez:** Nested CV 0.985 ± 0.011.  
-- **Ablación:** sin CDR+MMSE AUC=0.76.  
-- **Ensemble:** LR+RF+XGB → AUC=0.995.  
+### 3.6 COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED
+- Clasificadores: SVM, XGB, MLP.  
+- Evaluación slice→patient y patient-features.  
+- Ensemble híbrido (XGB+MLP).  
+- Resultados:  
+  - XGB slice→patient: Recall=0.85, Precisión=0.59.  
+  - MLP patient-features: PR-AUC=0.703, Recall=0.85.  
+  - Ensemble híbrido: AUC=0.744, Recall=0.80, Precisión=0.53.  
 
 ---
 
-## 6. Pipeline Imágenes (OASIS-2)
-
-### 6.1 Preprocesamiento
-- Slices axiales (5 o 20).  
-- Normalización, augmentations.  
-- Input 224×224.  
-
-### 6.2 Entrenamiento
-- ResNet50 fine-tuning.  
-- Optimizador Adam, early stopping.  
-- Split paciente.  
-
-### 6.3 Resultados
-- 5 slices sin CLAHE → AUC=0.938 (test).  
-- 20 slices + z-score → AUC=0.858.  
-
-➡️ Dependiente de preprocesado, sensible a augmentations.  
-
 ---
 
-## 7. Pipeline Imágenes Mejorado (OASIS-1+2)
+## 3.7 Visualizaciones de resultados
 
-### 7.1 Estrategia
-- Embeddings ResNet18 (ImageNet).  
-- Clasificadores clásicos: LR, SVC+Platt, RF, XGB.  
-- Calibración isotónica.  
-- Evaluación por paciente (probabilidades medias).  
-
-### 7.2 Resultados
-- **Linear probe (LR):**  
-  - Val (paciente) → AUC=0.793  
-  - Test (paciente) → AUC=0.707  
-
-- **Model Zoo:**  
-  - Mejor: **LinearSVC+Platt**, Val AUC=0.804, Test AUC=0.694.  
-
-- **Calibración (LR):**  
-  - Val: AUC=0.833, Brier=0.225  
-  - Test: AUC=0.702, Brier=0.248  
-
-- **Umbral clínico (thr=0.05):**  
-  - Recall=1.0 en validación, aceptando más falsos positivos.  
-
-➡️ Aunque los resultados son más bajos que en OASIS-2 puro, este pipeline sienta las bases para integrar OASIS-1 en MRI y combinarlo con clínicos.
-
----
-
-## 8. Discusión
-- Clínico fusionado → AUC≈0.985, interpretable y robusto.  
-- Imágenes OASIS-2 → AUC≈0.94, buen baseline.  
-- Imágenes OASIS-1+2 → AUC≈0.70, aún limitado.  
-- Multimodalidad es clave para aumentar potencia y robustez.  
-
----
-
-## 9. Limitaciones
-- Muestra pequeña.  
-- Uso de 2D en vez de 3D.  
-- Dependencia del preprocesado.  
-- Target binario simplificado.  
-
----
-
-## 10. Reproducibilidad
-- Semillas fijadas.  
-- Escalado dentro de folds.  
-- Código modular en notebooks.  
-
----
-
-## 11. Futuras Líneas
-1. Interpretabilidad avanzada (SHAP).  
-2. Fusión multimodal (clínico + imágenes).  
-3. Modelos 3D CNN o Transformers.  
-4. Validación en OASIS-3 y ADNI.  
-5. Optimización computacional (GPU).  
-
----
-
-## 12. Conclusiones
-- Clínico → modelos simples ya alcanzan alta precisión.  
-- Imágenes → aportan información complementaria.  
-- CDR y MMSE → predictores clínicos clave.  
-- Calibración y umbral clínico → imprescindibles para uso real.  
-- Próximo paso → **fusión multimodal**.  
-
----
-
-## 📊 Comparativa Visual (AUC)
+### Comparativa de modelos MRI (paciente-nivel, TEST)
 
 <p align="center">
-  <img src="./graficos/comparativa.png" alt="Gráfico de barras comparativo" width="600"/>
+  <img src="./graficos/mri_model_comparison_auc.png" alt="MRI AUC por modelo" width="520"/>
 </p>
+
+<p align="center">
+  <img src="./graficos/mri_model_comparison_prauc.png" alt="MRI PR-AUC por modelo" width="520"/>
+</p>
+
+<p align="center">
+  <img src="./graficos/mri_model_comparison_recall.png" alt="MRI Recall por modelo" width="520"/>
+</p>
+
+<p align="center">
+  <img src="./graficos/mri_model_comparison_precision.png" alt="MRI Precisión por modelo" width="520"/>
+</p>
+
+**Interpretación**:  
+- MLP mejora la calidad de ranking (PR-AUC más alto).  
+- XGB conserva la mayor sensibilidad clínica.  
+- El ensemble logra el mejor equilibrio general.  
+
+---
+
+### Comparativa Global (ROC-AUC por pipeline)
+
+<p align="center">
+  <img src="./graficos/global_auc_comparison.png" alt="Comparativa global de pipelines" width="580"/>
+</p>
+
+Este gráfico muestra la fortaleza de los modelos clínicos en términos de AUC, y cómo los modelos MRI calibrados en GPU se consolidan como candidatos para fusión multimodal.
+
+---
+
+### Timeline de los 6 Pipelines
+
+<p align="center">
+  <img src="./graficos/pipelines_timeline.png" alt="Timeline de los 6 Pipelines" width="720"/>
+</p>
+
+Este diagrama resume la evolución del proyecto:  
+1. Primer baseline clínico.  
+2. Fusión clínica OASIS-1+2.  
+3. Primer baseline en imágenes.  
+4. Ampliación con fusión MRI.  
+5. Migración a GPU (Colab).  
+6. Calibración y ensembles en GPU.  
+
+---
+
+## 4. Conclusiones Globales
+
+- **Clínico** → modelos muy estables, AUC≈0.98–0.99, interpretables (CDR y MMSE críticos).  
+- **MRI baseline** → ResNet50 ofrece alto AUC, dependiente de CPU y preprocesamiento.  
+- **MRI mejorado en GPU** →  
+  - Modelos calibrados, recall alto.  
+  - MLP mejora PR-AUC.  
+  - Ensemble híbrido MLP+XGB logra mejor equilibrio global.  
+
+📌 Conclusión:  
+- Clínico sigue siendo el más fuerte en AUC.  
+- MRI calibrado en GPU es clínicamente relevante (recall≈0.8–0.85, PR-AUC≈0.70).  
+- El ensemble híbrido se establece como el modelo MRI recomendado para la futura **fusión multimodal**.  
+
+---
+
+## 5. Próximos pasos
+
+1. Completar la fusión de OASIS-1+2 en imágenes (IMAGES-IMPROVED).  
+2. Diseñar y evaluar un modelo multimodal clínico+MRI.  
+3. Validación externa con OASIS-3/ADNI.  
+4. Publicación académica con énfasis en interpretabilidad clínica.  
