@@ -1,0 +1,6 @@
+Pipeline,ROC-AUC
+"Clínico (OASIS-2, XGB)",0.897
+Clínico Fusion (LR+RF+XGB),0.995
+"MRI (OASIS-2, ResNet50 5 slices)",0.938
+MRI ResNet18 (slice-ensemble XGB+MLP),0.744
+MRI EffNet-B3 (Ensemble LR+XGB),0.704
