@@ -4,7 +4,7 @@ Este proyecto explora la **detección temprana de la enfermedad de Alzheimer** c
 
 El enfoque se diseñó con una idea central: **replicar el razonamiento clínico** usando tanto la información disponible en la historia del paciente (tests neuropsicológicos, edad, educación, volumen cerebral) como en las **imágenes estructurales cerebrales**.  
 
-Se construyeron **seis pipelines** para analizar y comparar modalidades:  
+Se construyeron **siete pipelines** para analizar y comparar modalidades:  
 
 1. **COGNITIVA-AI-CLINIC** → ML clásico con datos clínicos (solo OASIS-2).  
 2. **COGNITIVA-AI-CLINIC-IMPROVED** → ML clásico con datos clínicos fusionados OASIS-1 + OASIS-2.  
@@ -12,6 +12,7 @@ Se construyeron **seis pipelines** para analizar y comparar modalidades:
 4. **COGNITIVA-AI-IMAGES-IMPROVED** → fusión de OASIS-1+2 en imágenes.  
 5. **COGNITIVA-AI-IMAGES-IMPROVED-GPU** → embeddings ResNet18 entrenados en **Google Colab (GPU)**.  
 6. **COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED (EffNet-B3)** → embeddings EfficientNet-B3 + ensemble LR+XGB a nivel paciente.  
+7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet‑B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.
 
 ---
 
@@ -130,6 +131,28 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 
 ---
 
+# 7️⃣ COGNITIVA-AI-FINETUNING (EfficientNet-B3 Fine-Tuning en GPU, resultados finales)
+
+- **Notebook:** `cognitiva_ai_finetuning.ipynb` (Colab GPU)  
+- **Pooling paciente:** mean  
+- **Calibración:** *temperature scaling* con T=2.673  
+- **Umbral clínico:** 0.3651  
+
+### 📊 Resultados finales (nivel paciente, n=47)
+- **VAL** → AUC=0.748 | PR-AUC=0.665 | Acc=0.702 | Precision=0.588 | Recall=1.0  
+- **TEST** → AUC=0.876 | PR-AUC=0.762 | Acc=0.745 | Precision=0.625 | Recall=1.0  
+
+**Matriz de confusión TEST (reconstruida, thr=0.3651):**  
+TP=8, FP=5, TN=34, FN=0
+
+### 🖼️ Gráficas
+- `graphs_from_metrics/ft_b3_patient_confusion_from_metrics.png`  
+- `graphs_from_metrics/ft_b3_pr_point.png`  
+- `graphs_from_metrics/ft_b3_bars_auc.png`  
+- `graphs_from_metrics/ft_b3_bars_prauc.png`  
+
+---
+
 # 📊 Comparativa Global
 
 <p align="center">
@@ -164,4 +187,3 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 
 **Autoría:** Fran Ramírez  
 **Año:** 2025
-

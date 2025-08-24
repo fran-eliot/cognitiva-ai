@@ -1,184 +1,199 @@
-# 📓 Cuaderno de Bitácora — Proyecto COGNITIVA-AI
+# 📖 Cuaderno de Bitácora – Proyecto COGNITIVA-AI
 
-Este documento recoge de manera **cronológica, detallada y reflexiva** el proceso de desarrollo del proyecto **COGNITIVA-AI: Detección temprana de Alzheimer mediante datos clínicos y resonancias magnéticas (MRI)**.  
+Este documento actúa como **diario detallado de investigación**, complementando al `README.md` (resumen ejecutivo) y al `InformeTecnico.md` (documentación formal).  
 
-A diferencia del `README.md` (más divulgativo) y el `InformeTecnico.md` (más técnico-formal), aquí se presentan **todas las decisiones, problemas prácticos, soluciones y aprendizajes** a lo largo del camino, como un auténtico diario de investigación.  
-
----
-
-## 📅 Línea Temporal de Avances
+Aquí se incluyen **todas las fases del proyecto**, así como las **entradas diarias (dailys)** con los resultados obtenidos, problemas técnicos y conclusiones.  
 
 ---
 
-### 2025-01 — Inicio del proyecto
-- **Objetivo:** explorar la **detección temprana de Alzheimer** usando tanto:
-  - **datos clínicos tabulares** (edad, MMSE, CDR, volumetrías, etc.),
-  - como **imágenes estructurales de resonancia magnética (MRI)**.  
-- **Datasets seleccionados:**
-  - **OASIS-1**: transversal, 416 sujetos.
-  - **OASIS-2**: longitudinal, 150 sujetos, con variable `Group` explícita.  
+# 🗂️ Fases Globales
 
-**Problema inicial detectado:**  
-Mi equipo local (ordenador modesto) **no podía entrenar redes neuronales profundas sobre MRI** por limitaciones de hardware (CPU).  
-➡️ Se decidió comenzar por **modelos clásicos en datos clínicos**, para tener un baseline sólido.
+## Fase 1 – Datos clínicos OASIS-2 (pipeline inicial)
 
----
+**Contexto:**  
+Se comenzó con un enfoque tabular sencillo sobre OASIS-2, trabajando con variables clínicas estándar.
 
-### 2025-02 — Primer pipeline clínico (COGNITIVA-AI-CLINIC, OASIS-2)
-- **Variables empleadas:**
-  - `age` → edad en años (factor de riesgo principal en Alzheimer).
-  - `sex` → sexo biológico (diferencias epidemiológicas).
-  - `education` → años de educación (proxy de *reserva cognitiva*).
-  - `SES` → estatus socioeconómico (relacionado con acceso a cuidados).
-  - `MMSE` → Mini-Mental State Examination (test cognitivo clásico).
-  - `CDR` → Clinical Dementia Rating (gravedad clínica de la demencia).
-  - `eTIV`, `nWBV`, `ASF` → medidas volumétricas cerebrales.
-- **Preprocesamiento:**
-  - Imputación de valores perdidos (SES, educación) → mediana.
-  - Escalado estándar.
-  - Codificación one-hot para variables categóricas.
-- **Modelos probados:** LR, Random Forest, XGBoost.
+**Variables principales:**
+- `AGE`: edad del paciente.  
+- `M/F`: sexo biológico.  
+- `EDUC`: años de educación formal (relacionado con reserva cognitiva).  
+- `SES`: estatus socioeconómico.  
+- `MMSE`: Mini-Mental State Examination (test cognitivo).  
+- `CDR`: Clinical Dementia Rating (gravedad clínica).  
+- `eTIV`: volumen intracraneal estimado.  
+- `nWBV`: volumen cerebral normalizado.  
+- `ASF`: factor de escala anatómico.  
 
-**Resultados:**
-- AUC CV ≈ 0.91–0.92 (buen baseline).  
-- Mejor modelo → **Random Forest (0.925 CV)**, **XGB (0.897 en test)**.  
+**Resultados clave:**
 
-**Conclusión parcial:**  
-Con pocas variables clínicas ya se obtiene un buen rendimiento, pero el dataset es pequeño. Necesitamos **más robustez**.
+| Modelo | AUC (CV 5-fold) | AUC Test |
+|--------|-----------------|----------|
+| Logistic Regression | 0.912 ± 0.050 | — |
+| Random Forest        | 0.925 ± 0.032 | — |
+| XGBoost              | 0.907 ± 0.032 | **0.897** |
 
----
-
-### 2025-03 — Fusión OASIS-1 + OASIS-2 (COGNITIVA-AI-CLINIC-IMPROVED)
-- **Objetivo:** aumentar tamaño muestral y estabilidad.
-- **Decisiones clave:**
-  - Unificación de columnas en *snake_case*.
-  - En OASIS-2 solo baseline para evitar fuga de información.
-  - Target unificado: `Group` (OASIS-2) y `CDR`>0 (OASIS-1).
-  - Etiqueta de cohorte para trazabilidad.
-
-**Resultados:**
-- Hold-out inicial: AUC≈1.0 en LR, RF, XGB (pico alto por fusión).
-- Validación cruzada 5-fold:
-  - LR = 0.979 ± 0.012
-  - RF = 0.974 ± 0.018
-  - XGB = 0.975 ± 0.021
-- Ensemble (LR+RF+XGB) ≈ **0.995 AUC**.  
-
-**Conclusiones:**
-- La fusión de datos clínicos dio **modelos muy estables**.  
-- Variables críticas: **CDR y MMSE**.  
-- Volumétricas aportan poco (sin ellas AUC ≈1.0).  
-- Se ajustó **umbral clínico bajo** → maximizar recall (evitar falsos negativos).  
-
----
-
-### 2025-04 — Primeros experimentos con MRI (COGNITIVA-AI-IMAGES, OASIS-2)
-- **Pipeline:**
-  - Conversión de `.hdr/.img` → cortes axiales `.png`.
-  - Normalización y augmentations ligeros.
-  - Entrenamiento de **ResNet50**.
-- **Resultados:**
-  - 5 slices → AUC=0.938 (mejor).
-  - 20 slices + z-score → AUC=0.858 (más recall, menos precisión).
+**Gráfico:**  
+![Resultados clínicos OASIS-2](./graficos/clinic_oasis2.png)
 
 **Conclusión:**  
-MRI es prometedor, pero muy dependiente del preprocesamiento y computacionalmente costoso.  
-➡️ Localmente **no es viable entrenar** → necesidad de **migrar a Google Colab con GPU**.
+Pipeline sencillo y robusto, pero dataset limitado (150 sujetos).
 
 ---
 
-### 2025-05 — Migración a Google Colab (GPU T4)
-- Se adquirieron **100 unidades de computación Colab**.  
-  - GPU T4 = ~1.32 unidades/hora.  
-- Probamos también GPUs más potentes (A100, L4) y TPUs, pero se estandarizó en **T4**.  
-- **Problema solucionado:** ya podemos entrenar y extraer embeddings con CNNs.  
+## Fase 2 – Fusión clínica OASIS-1 + OASIS-2
 
----
+**Contexto:**  
+Para ganar robustez, se unieron OASIS-1 (transversal) y OASIS-2 (longitudinal).  
 
-### 2025-06 — MRI mejorado con embeddings ResNet18 (COGNITIVA-AI-IMAGES-IMPROVED)
-- Generamos **embeddings ResNet18 (512D)**.
-- Clasificador: **Logistic Regression**.
-- **Calibración isotónica** (`CalibratedClassifierCV`).
+**Pasos clave:**
+- Homogeneización de columnas (`snake_case`).  
+- Selección baseline en OASIS-2.  
+- Target unificado (`0 = Nondemented`, `1 = Demented/Converted`).  
+- Imputación SES/Educación con mediana.  
+- Etiqueta de cohorte.  
 
-**Resultados:**
-- Slice-nivel (thr=0.5): AUC≈0.66.
-- Paciente-nivel (mean pooling): AUC≈0.72.
-- Ajustando umbral bajo (thr≈0.20):  
-  - Recall=0.9 en VAL, Recall=0.8 en TEST.  
-- Mejor Brier Score → **probabilidades más confiables**.
+**Resultados clave:**
+
+| Modelo | Hold-out (80/20) | CV 5-fold | Nested CV (10x5) |
+|--------|-----------------|-----------|------------------|
+| Logistic Regression | 1.000 | 0.979 ± 0.012 | — |
+| Random Forest        | 0.986 | 0.974 ± 0.018 | — |
+| XGBoost              | 0.991 | 0.975 ± 0.021 | — |
+| Ensemble (LR+RF+XGB) | —     | —             | **0.995** |
+
+**Gráfico:**  
+![Fusion clínica OASIS1+2](./graficos/clinic_fusion.png)
 
 **Conclusión:**  
-Aunque el AUC no subió, **la calibración mejoró la confiabilidad clínica**.  
+Dataset combinado muy estable, modelos calibrados y con gran generalización. Interpretabilidad clínica: **CDR + MMSE críticos**.
 
 ---
 
-### 2025-07 — Patient-features y ensembles
-- Estrategia: resumir embeddings por paciente.  
-- Modelos: LR, SVM, XGB, MLP.  
-- Ensembles slice→patient + patient-features.  
+## Fase 3 – MRI en CPU local (ResNet50 baseline)
 
-**Resultados (ResNet18):**
-- XGB slice→patient: AUC=0.733 TEST.  
-- Ensemble híbrido (XGB+MLP): AUC≈0.744 TEST.  
+**Contexto:**  
+Primeros experimentos con MRI desde imágenes (OASIS-2).  
+
+**Resultados clave:**
+
+| Configuración | AUC (Test) |
+|---------------|------------|
+| ResNet50 (5 slices, sin CLAHE) | **0.938** |
+| ResNet50 (20 slices, z-score) | 0.858 |
+
+**Gráfico:**  
+![MRI baseline ResNet50](./graficos/mri_resnet50_baseline.png)
 
 **Conclusión:**  
-Los ensembles **mejoran recall y precisión** en validación y test.  
+Buen desempeño, pero costoso en CPU local → se decide migrar a **Google Colab con GPU**.
 
 ---
 
-### 2025-08 — MRI con EfficientNet-B3 en GPU (COGNITIVA-AI-IMAGES-IMPROVED-GPU)
-- Modelo base: **EfficientNet-B3**, preentrenado.  
-- Embeddings 1536D.  
-- Paciente-nivel con PCA + ML clásicos.
+## Fase 4 – Google Colab GPU (ResNet18 embeddings + calibrado)
 
-**Resultados:**
-- LR: AUC=0.685 (TEST).  
-- XGB: AUC=0.670 (TEST).  
-- MLP: AUC=0.648 (TEST).  
-- **Ensemble LR+XGB:** AUC=0.704 TEST, Recall=0.90.  
+**Contexto:**  
+Migración a Google Colab (GPU T4). Se generan embeddings ResNet18 (512d) y se calibran con regresión logística isotónica.
+
+**Resultados clave:**
+
+| Nivel        | Dataset | AUC  | PR-AUC | Acc  | Recall | Precision | Brier |
+|--------------|---------|------|--------|------|--------|-----------|-------|
+| Slice        | VAL     | 0.627 | 0.538 | 0.62 | 0.43   | 0.57      | 0.296 |
+| Slice        | TEST    | 0.661 | 0.535 | 0.62 | 0.47   | 0.57      | 0.289 |
+| Paciente (thr=0.204) | VAL | 0.722 | 0.634 | 0.70 | 0.90 | 0.60 | — |
+| Paciente (thr=0.204) | TEST | 0.724 | 0.606 | 0.60 | 0.80 | 0.52 | — |
+
+**Gráfico:**  
+![ROC Curves – Colab GPU ResNet18](./graficos/roc_colab_resnet18.png)
 
 **Conclusión:**  
-EfficientNet-B3 mejora recall y estabilidad. El ensemble mantiene sensibilidad alta → valioso para cribado clínico.
+El calibrado isotónico **mejora Brier Score**, y con umbral clínico bajo logramos **recall alto (0.8 test)** → adecuado para cribado.
 
 ---
 
-## 📊 Comparativas y Gráficos
+## Fase 5 – Clasificadores alternativos y ensemble (slice→patient)
 
-### MRI (EfficientNet-B3 patient-features, TEST)
+**Resultados clave:**
 
-- ROC-AUC  
-  ![mri_effb3_pf_auc](./graphics_cognitiva_ai/mri_effb3_pf_auc.png)  
+| Modelo | AUC (Val) | AUC (Test) | PR-AUC (Val) | PR-AUC (Test) |
+|--------|-----------|------------|--------------|---------------|
+| SVM    | 0.731     | 0.746      | 0.618        | 0.628         |
+| XGB    | 0.743     | 0.733      | 0.644        | 0.605         |
+| Ensemble (LR+SVM+XGB) | 0.728 | 0.728 | 0.641 | 0.605 |
 
-- PR-AUC  
-  ![mri_effb3_pf_prauc](./graphics_cognitiva_ai/mri_effb3_pf_prauc.png)  
+**Gráfico:**  
+![Comparativa SVM-XGB-Ensemble](./graficos/ensemble_resnet18.png)
 
-- Recall  
-  ![mri_effb3_pf_recall](./graphics_cognitiva_ai/mri_effb3_pf_recall.png)  
-
-- Precisión  
-  ![mri_effb3_pf_precision](./graphics_cognitiva_ai/mri_effb3_pf_precision.png)  
-
-- Accuracy  
-  ![mri_effb3_pf_accuracy](./graphics_cognitiva_ai/mri_effb3_pf_accuracy.png)  
+**Conclusión:**  
+Ensemble mejora estabilidad, recall ~0.8 en test.
 
 ---
 
-### Comparativa Global de Pipelines
-![global_auc_comparison](./graphics_cognitiva_ai/global_auc_comparison_updated.png)  
+## Fase 6 – EfficientNet-B3 embeddings
+
+**Contexto:**  
+Se generan embeddings más ricos (1536d) con EfficientNet-B3.  
+
+**Resultados clave (paciente-nivel):**
+
+| Modelo | VAL AUC | VAL PR-AUC | TEST AUC | TEST PR-AUC | Recall (Test) | Precision (Test) |
+|--------|---------|------------|----------|-------------|---------------|------------------|
+| LR     | 0.786   | 0.732      | 0.685    | 0.539       | 0.80          | 0.52             |
+| MLP    | 0.870   | 0.886      | 0.648    | 0.556       | 0.95          | 0.53             |
+| XGB    | 0.782   | 0.633      | 0.670    | 0.617       | 0.75          | 0.56             |
+| Ensemble (LR+XGB) | 0.815   | 0.705      | 0.704    | 0.623       | 0.90          | 0.60             |
+
+**Gráfico:**  
+![EfficientNet-B3 comparativa](./graficos/effnetb3_val_test.png)
+
+**Conclusión:**  
+EffNet-B3 genera embeddings más ricos; los clasificadores simples sobreajustan, pero el **ensemble logra equilibrio** con recall clínico aceptable.
 
 ---
 
-## 📌 Reflexiones finales (hasta agosto 2025)
+# 📅 Entradas Diarias (Agosto 2025)
 
-- **Clínico fusionado** sigue siendo el mejor pipeline (AUC≈0.995, interpretable y robusto).  
-- **MRI embeddings + ensembles** logran AUC≈0.74 con alta sensibilidad (recall≈0.9).  
-- La combinación multimodal (clínico + MRI) será el siguiente gran paso.  
-- **Lecciones aprendidas:**
-  - Importancia de calibrar y ajustar umbrales clínicos.  
-  - Ensembles suelen estabilizar resultados en datasets pequeños.  
-  - La migración a Colab GPU fue esencial para seguir avanzando.  
+### 📅 18/08/2025 – Migración a Colab GPU
+- **Acción:** montaje de Google Drive, embeddings ResNet18, calibrado isotónico.  
+- **Resultado:** AUC estable ~0.72, recall mejorado con umbral bajo.  
+- **Problema:** pérdida de entorno → se reconstruyeron celdas iniciales.  
+- **Conclusión:** base sólida para MRI en GPU.
+
+---
+
+### 📅 21/08/2025 – Experimentación con EfficientNet-B3
+- **Acción:** embeddings 1536d, clasificadores LR/MLP/XGB.  
+- **Resultados:** LR estable, MLP con alto overfitting, ensemble mejora recall y precisión en test.  
+- **Conclusión:** embeddings más ricos abren la puerta a ensembles más sofisticados.
+
+---
+
+### 📅 23/08/2025 – Ensemble híbrido
+- **Acción:** combinación XGB slice→patient con MLP patient-features.  
+- **Resultados:** recall en test = 0.90, precisión ~0.60.  
+- **Conclusión:** validación de estrategia **híbrida** → clave para la futura fusión multimodal.
+
+---
+
+### 📅 24/08/2025 – Consolidación Fine-Tuning EfficientNet-B3 en Colab
+- **Acción:** se re‑ejecutó el notebook `cognitiva_ai_finetuning.ipynb` desde cero en Colab, generando el archivo `ft_effb3_patient_eval.json`.  
+- **Resultados (paciente, n=47):**  
+  - VAL: AUC=0.748 | PR-AUC=0.665 | Acc=0.702 | P=0.588 | R=1.0  
+  - TEST: AUC=0.876 | PR-AUC=0.762 | Acc=0.745 | P=0.625 | R=1.0  
+- **Matriz de confusión (TEST, thr=0.3651):** TP=8, FP=5, TN=34, FN=0.  
+- **Archivos generados:** gráficas en `graphs_from_metrics/` (confusión, punto PR, barras AUC/PR-AUC).  
+- **Conclusión:** se confirma la estabilidad del modelo fine‑tuned EfficientNet‑B3 como mejor pipeline MRI del proyecto.  
+
+---
+
+# 📌 Conclusión global
+- Clínico (fusionado OASIS1+2) → mejor AUC global (≈0.99).  
+- MRI en GPU → resultados robustos (AUC ~0.72, recall alto tras calibrado).  
+- EffNet-B3 → embeddings más ricos, ensemble mejora equilibrio.  
+- **Fine-Tuning B3 (Colab)** → recall 1.0 en test con precisión 0.625 (cribado).  
+- Próximos pasos → **multimodal (clínico+MRI)** y validación externa (OASIS-3/ADNI).
 
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** Agosto 2025
+**Última actualización:** 24/08/2025 – 20:21

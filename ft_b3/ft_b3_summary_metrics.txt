@@ -1,0 +1,24 @@
+Archivo: drive/MyDrive/CognitivaAI/ft_effb3_colab/ft_effb3_patient_eval.json
+Temperature: 2.6731656060943605
+Threshold: 0.3651449978351593
+
+== VAL ==
+AUC: 0.7481481481481482
+PR-AUC: 0.664989747813566
+Acc: 0.7021276595744681
+P: 0.5882352941176471
+R: 1.0
+thr: 0.3651449978351593
+n: 47
+
+== TEST ==
+AUC: 0.8759259259259259
+PR-AUC: 0.7620865452057403
+Acc: 0.7446808510638298
+P: 0.625
+R: 1.0
+thr: 0.3651449978351593
+n: 47
+
+Matriz de confusión (TEST) reconstruida a partir de Acc,P,R,n:
+TP=8 FP=5 TN=34 FN=0

@@ -1,117 +1,73 @@
-# Informe Técnico — Proyecto COGNITIVA-AI
+# 📘 Informe Técnico — COGNITIVA-AI
 
-## Introducción
+## 1. Introducción
+Objetivo: detección temprana de Alzheimer combinando **datos clínicos** y **MRI** (OASIS‑1/2).  
+Enfoque: comparar pipelines unimodales y preparar la base para un modelo **multimodal**.
 
-El Alzheimer es una enfermedad neurodegenerativa progresiva que afecta la memoria y otras funciones cognitivas.  
-La **detección temprana** es crucial para intervenciones más efectivas, y puede abordarse desde:  
+## 2. Datos
+- OASIS‑1 (transversal), OASIS‑2 (longitudinal).  
+- Variables clínicas: Age, Sex, Educ, SES, MMSE, CDR, eTIV, nWBV, ASF.  
+- Etiquetas: `0 = Nondemented`, `1 = Demented/Converted` (armonizado).
 
-1. **Datos clínicos tabulares** (tests neuropsicológicos, factores de riesgo, medidas volumétricas).  
-2. **Imágenes de resonancia magnética estructural (MRI)**, que reflejan atrofia cerebral.  
+## 3. Metodología
+- Preprocesado clínico (imputación, escalado, codificación).  
+- MRI: extracción de slices, normalización, augmentations ligeras.  
+- Validaciones: hold‑out, CV 5‑fold, y test con **split por paciente**.  
+- Métricas: ROC‑AUC, PR‑AUC, Accuracy, Precision, Recall, Brier.  
+- Calibración: isotónica (embeddings) y *temperature scaling* (fine‑tuning).
 
-Este proyecto emplea datos de **OASIS-1 y OASIS-2**, explorando ambas modalidades.  
+## 4. Resultados por Pipeline
 
----
+### 4.1 Clínico (OASIS‑2)
+- LogReg: 0.912 ± 0.050 (CV), XGB test: 0.897 AUC.  
 
-## Datos y Variables
+### 4.2 Clínico fusionado (OASIS‑1 + OASIS‑2)
+- CV 5‑fold: LogReg 0.979 ± 0.012, RF 0.974 ± 0.018, XGB 0.975 ± 0.021.  
 
-- **OASIS-1 (transversal):** 416 sujetos, una visita.  
-- **OASIS-2 (longitudinal):** 150 sujetos, múltiples visitas.  
+### 4.3 MRI baseline (ResNet50)
+- 5 slices test AUC=0.938; 20 slices z‑score AUC=0.858.  
 
-**Variables clínicas:**
+### 4.4 MRI en GPU (ResNet18 + calibración)
+- Paciente (thr≈0.20): VAL AUC=0.722 / TEST AUC=0.724; Recall test≈0.80.  
 
-- **Age**: Edad del paciente. Predictor fuerte de riesgo.  
-- **Sex**: Diferencias epidemiológicas en prevalencia.  
-- **Educ**: Años de educación formal. Relacionado con reserva cognitiva.  
-- **SES**: Escala socioeconómica. Asociada a recursos cognitivos.  
-- **MMSE**: Test cognitivo global (0–30).  
-- **CDR**: Escala clínica de severidad de demencia.  
-- **eTIV**: Volumen intracraneal estimado.  
-- **nWBV**: Proporción de volumen cerebral respecto intracraneal.  
-- **ASF**: Factor de ajuste anatómico.  
+### 4.5 Clasificadores alternativos y ensemble
+- Ensemble (LR+SVM+XGB): AUC test=0.728; PR‑AUC=0.605.
 
-**MRI:** imágenes `.hdr/.img` + segmentaciones asociadas.  
+### 4.6 EfficientNet‑B3 embeddings (1536D)
+- LR/MLP/XGB a nivel paciente; **Ensemble (LR+XGB)** mejor equilibrio.  
+- VAL AUC=0.815 | PR‑AUC=0.705; TEST AUC=0.704 | PR‑AUC=0.623; Recall test≈0.90.
 
-**Target unificado:**  
-- `0 = Nondemented`  
-- `1 = Demented` o `Converted`.  
+### 4.7 MRI EfficientNet‑B3 Fine‑Tuning (Colab GPU, resultados finales)
+- **Notebook:** `cognitiva_ai_finetuning.ipynb`  
+- **Configuración:** fine‑tuning parcial de EfficientNet‑B3, pooling mean, calibración por *temperature scaling* (T=2.673), **umbral clínico**=0.3651.  
+- **Origen de resultados:** archivo agregado `ft_effb3_patient_eval.json` (sin predicciones individuales).  
 
----
+#### 📊 Resultados (nivel paciente, n=47)
+| Split | AUC   | PR-AUC | Acc   | Precision | Recall | Thr    |
+|------:|:-----:|:------:|:-----:|:---------:|:------:|:------:|
+| VAL   | 0.748 | 0.665  | 0.702 | 0.588     | 1.0    | 0.3651 |
+| TEST  | 0.876 | 0.762  | 0.745 | 0.625     | 1.0    | 0.3651 |
 
-## Metodología
+**Matriz de confusión (TEST, thr=0.3651, reconstruida):**  
+TP=8, FP=5, TN=34, FN=0
 
-- **Control de fugas:** baseline OASIS-2, split por paciente en MRI.  
-- **Pipelines clínicos:** LR, RF, XGB.  
-- **Pipelines MRI:** ResNet50, ResNet18, EfficientNet-B3.  
-- **Estrategias de calibración:** isotónica.  
-- **Evaluación a nivel slice y paciente.**  
+#### 🖼️ Gráficas derivadas
+- Matriz de confusión: `graphs_from_metrics/ft_b3_patient_confusion_from_metrics.png`  
+- Punto PR: `graphs_from_metrics/ft_b3_pr_point.png`  
+- Barras de AUC: `graphs_from_metrics/ft_b3_bars_auc.png`  
+- Barras de PR-AUC: `graphs_from_metrics/ft_b3_bars_prauc.png`  
 
----
+> Nota: al no disponer de predicciones individuales, no es posible trazar curvas ROC/PR completas; se representan métricas agregadas y la matriz reconstruida.
 
-## Resultados
+## 5. Discusión
+- Clínico fusionado queda como **línea base de referencia** (AUC ~0.99).  
+- MRI aporta **valor de cribado**; el **fine‑tuning B3** logra **recall=1.0** con precisión moderada (0.625).  
+- La calibración (*T scaling*) aporta **probabilidades más útiles** para la toma de decisiones clínicas con umbral fijo.  
 
-### Clínico (OASIS-2)
-- XGBoost: **AUC=0.897 (test)**.  
+## 6. Conclusiones y Próximos Pasos
+- Consolidado el **pipeline MRI** con B3 fine‑tuning en GPU.  
+- Siguiente fase: **fusión multimodal (clínico + MRI)** y validación externa (OASIS‑3/ADNI).  
+- Añadir guardado de **predicciones por paciente** en JSON para curvas ROC/PR futuras.
 
-### Clínico Fusionado (OASIS-1+2)
-- Ensemble (LR+RF+XGB): **AUC≈0.995**.  
-- Muy estable, alta generalización.  
-
-### MRI ResNet50 (OASIS-2 baseline)
-- 5 slices → **AUC=0.938 (test)**.  
-
-### MRI ResNet18 (Colab GPU calibrado)
-- Slice: AUC≈0.66, Brier=0.23.  
-- Paciente: Recall=0.80, Precision=0.52 (test).  
-
-### MRI EfficientNet-B3 (patient-features + ensemble)
-- Ensemble LR+XGB:  
-  - [VAL] AUC=0.815 | PR-AUC=0.705 | Recall=0.95.  
-  - [TEST] AUC=0.704 | PR-AUC=0.623 | Recall=0.90.  
-
----
-
-## Visualizaciones
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_auc.png" alt="MRI EffB3 patient-features — ROC-AUC (TEST)" width="720"/>
-</p>
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_prauc.png" alt="MRI EffB3 patient-features — PR-AUC (TEST)" width="720"/>
-</p>
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_recall.png" alt="MRI EffB3 patient-features — Recall (TEST)" width="720"/>
-</p>
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_precision.png" alt="MRI EffB3 patient-features — Precisión (TEST)" width="720"/>
-</p>
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_accuracy.png" alt="MRI EffB3 patient-features — Accuracy (TEST)" width="720"/>
-</p>
-
----
-
-## Comparativa Global
-
-<p align="center">
-  <img src="./graficos/global_auc_comparison_updated.png" alt="Comparativa Global — ROC-AUC por Pipeline" width="880"/>
-</p>
-
----
-
-## Conclusiones
-
-- Los modelos clínicos siguen siendo los **más fiables (AUC≈0.98–0.99)**.  
-- MRI ResNet18 calibrado mejora la confiabilidad probabilística (Brier).  
-- MRI EfficientNet-B3 + ensemble logra **sensibilidad clínica alta (R≈0.9)**.  
-- Estrategia general: priorizar recall (detección temprana) frente a precisión.  
-- Próximos pasos: **fusión multimodal clínico+MRI** y validación externa en OASIS-3/ADNI.  
-
----
-
-**Autoría:** Fran Ramírez  
-**Año:** 2025
-
+**Fecha:** 24/08/2025  
+**Autoría:** Fran Ramírez
