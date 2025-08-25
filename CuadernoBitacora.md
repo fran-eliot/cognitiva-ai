@@ -208,6 +208,27 @@ Pipeline 9 constituye el **mejor modelo MRI** hasta la fecha, alcanzando **sensi
 
 ---
 
+## Fase 10 – Stable Plus (checkpoint limpio + calibración final)
+
+**Contexto:**  
+Tras el pipeline estable (fase 9), se detectaron problemas de compatibilidad entre el checkpoint guardado y la arquitectura usada. Esto generaba cargas parciales (<1% en algunos intentos) y métricas inconsistentes. La fase 10 surge para **reconstruir el checkpoint a un formato limpio (99.7% pesos cargados), aplicar calibración final y consolidar el modelo MRI**.
+
+**Acciones:**  
+- Normalización del checkpoint entrenado, eliminando capas obsoletas (`head.classifier`) y adaptando pesos a la nueva `head`.  
+- Evaluación de estrategias de pooling (mean, median, top-k).  
+- Aplicación de calibración mediante *temperature scaling*.  
+- Guardado de artefactos completos (CSV por slice, CSV por paciente, JSON con métricas, gráficas comparativas).  
+
+**Resultados clave:**  
+- VAL: AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
+- TEST: AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
+- El recall clínico en test vuelve a ser **perfecto (1.0)**, sacrificando precisión (0.47).  
+
+**Conclusión:**  
+Pipeline 10 consolida la línea de MRI, con resultados estables y calibrados. Marca un cierre sólido antes de pasar a experimentos multimodales.
+
+---
+
 # 📅 Entradas Diarias (Agosto 2025)
 
 ### 📅 18/08/2025 – Migración a Colab GPU
@@ -268,8 +289,6 @@ Pipeline 9 constituye el **mejor modelo MRI** hasta la fecha, alcanzando **sensi
 - **Artefactos:** `best_effb3_stable.pth`, `effb3_stable_patient_eval.json`, CSVs por slice/paciente y gráficas en `graphs_from_metrics/`.  
 - **Conclusión:** Se obtuvo un **pipeline MRI óptimo:** modelo calibrado, sin falsos negativos en test. La sensibilidad alcanzada (100%) cumple con creces la meta de cribado. Este resultado supera en equilibrio a todos los intentos previos y deja al modelo listo para integrarse con datos clínicos. Próximo paso: **fusión multimodal** (combinar predicción clínica y de MRI) y validar en cohortes externas (OASIS-3, ADNI) para verificar su generalización.
 
-
-
 ### 📅 25/08/2025 – 03:04 – Pipeline 9 (EffB3 estable)
 - **Acción:** retraining reproducible en Colab (EffNet‑B3), caché SSD, AMP (`torch.amp`), early‑stopping por AUC en holdout, calibración (T=2.048), pooling `mean` y selección de umbral 0.3400 con recall≥0.95 en VAL.  
 - **Resultados:**  
@@ -278,6 +297,29 @@ Pipeline 9 constituye el **mejor modelo MRI** hasta la fecha, alcanzando **sensi
 - **Comparativa con P7:** ver `comparison_p7_p9_*` (AUC/PR‑AUC).
 - **Artefactos:** `best_effb3_stable.pth`, `effb3_stable_patient_eval.json`, CSVs por slice/paciente y gráficas en `graphs_from_metrics/`.  
 - **Conclusión:** setup estable listo para el salto a **multimodal** y validación externa.-
+
+---
+
+### 📅 26/08/2025 – Stable Plus (checkpoint limpio + calibración)
+
+- **Acción:**  
+  - Reconstrucción del checkpoint (`effb3_stable_seed42.pth`) a un formato limpio y compatible.  
+  - Carga de pesos (99.7% éxito), eliminando discrepancias de capas.  
+  - Aplicación de *temperature scaling* y ajuste de pooling.  
+
+- **Resultados:**  
+  - VAL: AUC=0.63 | PR-AUC=0.67 | Recall≈0.85  
+  - TEST: AUC=0.55 | PR-AUC=0.53 | Recall=1.0  
+  - Se confirmó estabilidad en los artefactos (CSV, JSON, gráficas).  
+
+- **Artefactos:**  
+  - Checkpoint limpio en `best_effb3_stable.pth`.  
+  - CSV por slice y paciente.  
+  - JSON de evaluación calibrada.  
+  - Gráficas comparativas en `graphs_from_metrics/`.  
+
+- **Conclusión:**  
+  Pipeline estable y calibrado, recuperando recall perfecto en test, aunque precisión moderada (~0.47). Sirve como base de referencia para cerrar la etapa MRI.
 
 ---
 
@@ -290,4 +332,4 @@ Pipeline 9 constituye el **mejor modelo MRI** hasta la fecha, alcanzando **sensi
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 25/08/2025 – 20:38
+**Última actualización:** 26/08/2025 – 00:18

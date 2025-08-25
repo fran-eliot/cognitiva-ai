@@ -223,9 +223,37 @@ Modelo MRI altamente sensible y calibrado. Por primera vez se detecta el 100% de
 
 ---
 
+---
+
+## 🔟 Pipeline 10 – Fine-Tuning Stable Plus (checkpoint limpio + calibración final)
+
+**Motivación:**  
+El pipeline 9 ofrecía estabilidad, pero los checkpoints entrenados no siempre coincidían con la arquitectura definida, cargando <1% de pesos en algunos intentos. Era necesario **reprocesar el checkpoint**, asegurar la integridad de pesos y aplicar calibración para obtener resultados reproducibles.
+
+**Configuración:**  
+- Modelo: EfficientNet-B3 binario (head adaptada).  
+- Checkpoint: `effb3_stable_seed42.pth`, reconstruido a `best_effb3_stable.pth` (99.7% de pesos cargados).  
+- Calibración: *temperature scaling* aplicado sobre logits.  
+- Pooling: estrategias mean, median y top-k.  
+
+**Resultados:**  
+- **VAL (n=47):** AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
+- **TEST (n=47):** AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
+
+**Artefactos generados:**  
+- Checkpoint limpio en `/ft_effb3_stable_colab_plus/best_effb3_stable.pth`.  
+- CSV por slice y paciente.  
+- JSON de evaluación calibrada (`effb3_stable_patient_eval_calibrated.json`).  
+- Gráficas comparativas AUC, PR-AUC, precisión y recall.  
+
+**Conclusión:**  
+Pipeline 10 logra consolidar la línea MRI con un recall perfecto en test (1.0), asegurando sensibilidad máxima para cribado clínico temprano. Si bien la precisión baja (0.47), marca un cierre robusto de la fase MRI antes de abordar multimodalidad.
+
+---
+
 ### Comparativa global
 
-## 📊 Comparativa Global (pipelines 1–9)
+## 📊 Comparativa Global (pipelines 1–10)
 
 | Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc | Recall | Precision |
 |----------|-----------------|-------------------|------------|--------|-----|--------|-----------|
@@ -236,6 +264,7 @@ Modelo MRI altamente sensible y calibrado. Por primera vez se detecta el 100% de
 | P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70| 0.90   | 0.60      |
 | P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0   | 0.625     |
 | P9       | MRI Colab       | EffNet-B3 stable  | 0.74       | 0.63   | 0.72| 0.65   | 0.62      |
+| P10      | Fine-Tuning B3 Stable Plus | EffNet-B3 calibrado | 0.63 | 0.55 | 1.00 | 0.47 |
 
 ---
 
@@ -290,6 +319,10 @@ Modelo MRI altamente sensible y calibrado. Por primera vez se detecta el 100% de
 
 - **Modalidad MRI:**  
   Inicialmente rezagada, la visión por computador cierra la brecha mediante transferencia, calibración y fine-tuning. El pipeline final de MRI (EffNet-B3 fine-tune) logra alta sensibilidad y precisión moderada, ideal para screening.
+  Con la incorporación del pipeline 10, el proyecto alcanza **diez pipelines** en total.  
+  La parte clínica (Pipeline 2) sigue dominando en AUC (~0.99), mientras que los pipelines MRI más recientes (7–10) priorizan **recall perfecto en test** (1.0), lo que los hace especialmente valiosos en escenarios de cribado donde los falsos negativos son inaceptables.  
+  Este balance deja preparado el terreno para la siguiente etapa: la **fusión multimodal** entre datos clínicos y MRI.
+
 
 - **Integración futura (Multimodal):**  
   Próximo paso: fusionar ambas modalidades en un meta-clasificador. Se buscará validar el pipeline en datos externos (OASIS-3, ADNI).

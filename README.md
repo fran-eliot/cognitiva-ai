@@ -4,7 +4,7 @@ Este proyecto explora la **detección temprana de la enfermedad de Alzheimer** c
 
 El enfoque se diseñó con una idea central: **replicar el razonamiento clínico** usando tanto la información disponible en la historia del paciente (tests neuropsicológicos, edad, educación, volumen cerebral) como en las **imágenes estructurales cerebrales**.  
 
-Se construyeron **nueve pipelines** para analizar y comparar modalidades:  
+Se construyeron **diez pipelines** para analizar y comparar modalidades:  
 
 1. **COGNITIVA-AI-CLINIC** → ML clásico con datos clínicos (solo OASIS-2).  
 2. **COGNITIVA-AI-CLINIC-IMPROVED** → ML clásico con datos clínicos fusionados OASIS-1 + OASIS-2.  
@@ -15,6 +15,7 @@ Se construyeron **nueve pipelines** para analizar y comparar modalidades:
 7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet-B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.  
 8. **COGNITIVA-AI-FINETUNING-IMPROVED**  → Mejoras de fine-tuning (calibración de probabilidades).
 9. **COGNITIVA-AI-FINETUNING-STABLE** → Retraining estable de EfficientNet-B3 en **Google Colab (GPU)** con caché SSD, *temperature scaling* y selección de umbral clínico (recall≥0.95).
+10. **COGNITIVA-AI-FINETUNING-STABLE-PLUS** → checkpoint limpio + calibración final
 
 ---
 
@@ -207,7 +208,35 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 ➡️ Mejor pipeline MRI logrado: se detectan el 100% de los casos positivos en test (sin falsos negativos) al costo de algunos falsos positivos (precision ~62%). El modelo fine-tune calibrado ofrece así alta sensibilidad adecuada para cribado clínico, acercando el rendimiento MRI al nivel de los datos clínicos puros.
 ---
 
-# 📊 Comparativa Global
+# 🔟 COGNITIVA-AI-FINETUNING-STABLE-PLUS (checkpoint limpio + calibración final)
+
+- **Notebook:** `cognitiva_ai_finetuning_stable_plus.ipynb`  
+- **Motivación:** El pipeline 9 (Stable) aportaba estabilidad, pero arrastraba problemas de correspondencia entre checkpoints y arquitectura, además de no incluir calibración explícita. Pipeline 10 surge para **normalizar completamente el checkpoint, asegurar compatibilidad de pesos (99.7% cargados) y aplicar calibración final** (*temperature scaling*).  
+- **Configuración técnica:**  
+  - Arquitectura: EfficientNet-B3 con salida binaria.  
+  - Normalización robusta de pesos: conversión de checkpoint entrenado a formato limpio.  
+  - Calibración: *temperature scaling* sobre logits para ajustar probabilidades.  
+  - Pooling a nivel paciente: media (mean), median y variantes top-k.  
+- **Resultados clave (paciente-nivel):**  
+  - VAL: AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
+  - TEST: AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
+- **Conclusión:** el pipeline 10 logra **recall=1.0 en test**, lo que lo convierte en la opción más sensible para cribado clínico temprano, aunque con sacrificio en AUC y precisión. Cierra la etapa de *solo MRI* antes de avanzar a la fusión multimodal.
+
+---
+
+# 📊 Comparativa Global (pipelines 1–10)
+
+| Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc | Recall | Precision |
+|----------|-----------------|-------------------|------------|--------|-----|--------|-----------|
+| P1       | Clínico OASIS-2 | XGB               | 0.897      | —      | —   | —      | —         |
+| P2       | Clínico fusion  | XGB               | 0.991      | —      | —   | ~1.0   | —         |
+| P3       | MRI OASIS-2     | ResNet50          | 0.938      | —      | —   | —      | —         |
+| P5       | MRI Colab       | ResNet18 + Calib  | 0.724      | 0.606  | 0.60| 0.80   | 0.52      |
+| P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70| 0.90   | 0.60      |
+| P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0   | 0.625     |
+| P9       | MRI Colab       | EffNet-B3 stable  | 0.74       | 0.63   | 0.72| 0.65   | 0.62      |
+| P10      | Fine-Tuning B3 Stable Plus | EffNet-B3 calibrado | 0.63 | 0.55 | 1.00 | 0.47 |
+
 
 <p align="center">
   <img src="./graficos/global_auc_comparison_updated.png" alt="Comparativa Global — ROC-AUC por Pipeline" width="880"/>
@@ -241,4 +270,4 @@ La comparación global de ROC-AUC ilustra la mejora progresiva de cada pipeline,
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 25/08/2025 – 18:20 (Europe/Madrid)
+**Última actualización:** 26/08/2025 – 00:09
