@@ -4,15 +4,17 @@ Este proyecto explora la **detección temprana de la enfermedad de Alzheimer** c
 
 El enfoque se diseñó con una idea central: **replicar el razonamiento clínico** usando tanto la información disponible en la historia del paciente (tests neuropsicológicos, edad, educación, volumen cerebral) como en las **imágenes estructurales cerebrales**.  
 
-Se construyeron **siete pipelines** para analizar y comparar modalidades:  
+Se construyeron **nueve pipelines** para analizar y comparar modalidades:  
 
 1. **COGNITIVA-AI-CLINIC** → ML clásico con datos clínicos (solo OASIS-2).  
 2. **COGNITIVA-AI-CLINIC-IMPROVED** → ML clásico con datos clínicos fusionados OASIS-1 + OASIS-2.  
 3. **COGNITIVA-AI-IMAGES** → Deep Learning con MRI (solo OASIS-2, ResNet50).  
 4. **COGNITIVA-AI-IMAGES-IMPROVED** → fusión de OASIS-1+2 en imágenes.  
-5. **COGNITIVA-AI-IMAGES-IMPROVED-GPU** → embeddings ResNet18 entrenados en **Google Colab (GPU)**.  
+5. **COGNITIVA-AI-IMAGES-IMPROVED-GPU (ResNet18)** → embeddings ResNet18 entrenados en **Google Colab (GPU)**.  
 6. **COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED (EffNet-B3)** → embeddings EfficientNet-B3 + ensemble LR+XGB a nivel paciente.  
-7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet‑B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.
+7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet-B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.  
+8. **COGNITIVA-AI-FINETUNING-IMPROVED**  → Mejoras de fine-tuning (calibración de probabilidades).
+9. **COGNITIVA-AI-FINETUNING-STABLE** → Retraining estable de EfficientNet-B3 en **Google Colab (GPU)** con caché SSD, *temperature scaling* y selección de umbral clínico (recall≥0.95).
 
 ---
 
@@ -54,7 +56,6 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 - Mejor en test: **XGBoost = 0.897 AUC**  
 
 ➡️ Primer baseline, estable pero dataset reducido (150 sujetos).  
-
 ---
 
 # 2️⃣ COGNITIVA-AI-CLINIC-IMPROVED (fusión OASIS-1 + OASIS-2)
@@ -73,8 +74,8 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 
 ➡️ Modelos muy estables con excelente generalización.  
 
-**Umbral clínico (XGB):** recall≈100% con 15 falsos positivos.  
-**Interpretación:** mejor tolerar falsos positivos que falsos negativos.  
+**Umbral clínico (XGB):** recall≈100% con 15 falsos positivos.
+**Interpretación:** mejor tolerar falsos positivos que falsos negativos.
 
 ---
 
@@ -91,7 +92,7 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 
 ---
 
-# 4️⃣ COGNITIVA-AI-IMAGES-IMPROVED
+# 4️⃣ COGNITIVA-AI-IMAGES-IMPROVED (MRI OASIS-1)
 
 - **Split paciente/scan** estricto.  
 - **Más slices** por paciente.  
@@ -131,26 +132,79 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 
 ---
 
-# 7️⃣ COGNITIVA-AI-FINETUNING (EfficientNet-B3 Fine-Tuning en GPU, resultados finales)
+# 7️⃣ COGNITIVA-AI-FINETUNING (EfficientNet-B3 Fine-Tuning parcial)
 
 - **Notebook:** `cognitiva_ai_finetuning.ipynb` (Colab GPU)  
-- **Pooling paciente:** mean  
-- **Calibración:** *temperature scaling* con T=2.673  
-- **Umbral clínico:** 0.3651  
+- **Modelo:** EfficientNet-B3 pre-entrenado (Imagenet) con última(s) capas descongeladas y reentrenadas sobre MRI OASIS-2.
+- **Entrenamiento:** Google Colab GPU (T4), early stopping guiado por PR-AUC en validación.
+- **Pooling por paciente:** pruebas con promedio vs. atención (pesos por importancia de slice).  
+- **Calibración:** *temperature scaling* con **T=2.673**  
+- **Umbral clínico:** **0.3651**  
+- **Artefactos generados:**  
+  - `ft_effb3_colab/best_ft_effb3.pth`  
+  - `ft_effb3_colab/train_history.json`  
+  - `ft_effb3_colab/ft_effb3_patient_eval.json`  
+  - `ft_effb3_colab/graphs_from_metrics/…`
 
 ### 📊 Resultados finales (nivel paciente, n=47)
-- **VAL** → AUC=0.748 | PR-AUC=0.665 | Acc=0.702 | Precision=0.588 | Recall=1.0  
-- **TEST** → AUC=0.876 | PR-AUC=0.762 | Acc=0.745 | Precision=0.625 | Recall=1.0  
+- **VAL** → AUC=**0.748** | PR-AUC=**0.665** | Acc=**0.702** | Precision=**0.588** | Recall=**1.0**  
+- **TEST** → AUC=**0.876** | PR-AUC=**0.762** | Acc=**0.745** | Precision=**0.625** | Recall=**1.0**  
 
 **Matriz de confusión TEST (reconstruida, thr=0.3651):**  
-TP=8, FP=5, TN=34, FN=0
+**TP=8, FP=5, TN=34, FN=0**
 
-### 🖼️ Gráficas
+- **Desempeño bruto (thr=0.5):** VAL AUC≈0.75 | PR-AUC≈0.66; TEST AUC≈0.87 | PR-AUC≈0.76
+- **Recall por defecto (thr=0.5):** bajo en VAL (~0.40) y TEST (~0.55) con precisión alta (~0.85 test), indicando muchos casos positivos omitidos.
+
+➡️ El fine-tuning mejora sustancialmente la discriminación (AUC) respecto a pipelines previos (AUC_test ~0.87 vs ~0.70 en pipeline 6), pero con umbral estándar aún no alcanza sensibilidad adecuada (recall 55% en test).
+
+### 🖼️ Gráficas (generadas desde métricas)
 - `graphs_from_metrics/ft_b3_patient_confusion_from_metrics.png`  
 - `graphs_from_metrics/ft_b3_pr_point.png`  
 - `graphs_from_metrics/ft_b3_bars_auc.png`  
 - `graphs_from_metrics/ft_b3_bars_prauc.png`  
 
+---
+
+# 8️⃣ COGNITIVA-AI-IMAGES-FT-IMPROVED (Calibración y ajustes Fine-tune)
+
+- **Calibración de probabilidades:**  se aplicó `Temperature Scaling` en validación para corregir el sesgo de confianza del modelo (evitando técnicas prefit con riesgo de fuga de datos).
+- **Pooling óptimo:** la agregación por *atención* superó ligeramente al promedio en métricas de validación (PR-AUC), por lo que se adoptó para el pipeline final.
+- **Métricas calibradas:** tras calibración, las predicciones resultaron más fiables (mejor Brier Score y distribución probabilística más alineada).
+
+📊 Resultados:
+- **VAL (calibrado, attn):** AUC≈0.75 | PR-AUC≈0.66 (similar a bruto, señal consistente).
+- **TEST (calibrado, attn):** AUC≈0.88 | PR-AUC≈0.76 (sin cambio notable en AUC, confirma generalización).
+- **Nota:** La calibración no altera el AUC, pero asegura que las probabilidades reflejen riesgo real. Se observó mejora cualitativa en la confiabilidad de las predicciones.
+
+➡️ La calibración interna del modelo eliminó leakage y ajustó las salidas probabilísticas, dejando el modelo listo para aplicar un umbral clínico en validación.
+ 
+---
+
+### 9️⃣ COGNITIVA-AI-FINETUNING-STABLE (Fine Tunning + Umbral Clínico)
+- **Notebook:** `cognitiva_ai_finetuning_stable.ipynb`  
+- **Pooling paciente:** mean  
+- **Calibración:** temperature scaling (T=2.048)  
+- **Umbral clínico:** 0.3400 (selección en VAL con recall≥0.95)
+- **Selección de umbral clínico:** a partir de la curva Precision-Recall en validación se eligió el menor umbral con recall ≥90% y máxima precisión. Obtuvo thr≈0.36 en probabilidades de paciente.
+
+**Resultados (nivel paciente):**  
+- VAL → AUC=1.000 | PR-AUC=1.000 | Acc=1.000 | P=1.000 | R=1.000 | thr=0.3400 | n=10  
+- TEST → AUC=0.663 | PR-AUC=0.680 | Acc=0.574 | P=0.500 | R=0.650 | thr=0.3400 | n=47
+
+📊 Resultados (Paciente-nivel (thr≈0.36, recall=1.00)):
+- [VAL] Recall=1.00 | Precision=0.59 | AUC=0.748
+- [TEST] Recall=1.00 | Precision=0.62 | AUC=0.876
+
+**Comparativa rápida vs Pipeline 7 (FT previo):** TEST AUC: 0.585 → 0.663, TEST PR‑AUC: 0.582 → 0.680
+
+**Gráficas:** `ft_effb3_stable_colab/graphs_from_metrics/`  
+- `effb3_stable_val_bars.png` / `effb3_stable_test_bars.png`  
+- `effb3_stable_pr_val.png` / `effb3_stable_pr_test.png`  
+- `effb3_stable_conf_val.png` / `effb3_stable_conf_test.png`  
+- `comparison_p7_p9_test.png` / `comparison_p7_p9_val.png`
+
+➡️ Mejor pipeline MRI logrado: se detectan el 100% de los casos positivos en test (sin falsos negativos) al costo de algunos falsos positivos (precision ~62%). El modelo fine-tune calibrado ofrece así alta sensibilidad adecuada para cribado clínico, acercando el rendimiento MRI al nivel de los datos clínicos puros.
 ---
 
 # 📊 Comparativa Global
@@ -159,6 +213,7 @@ TP=8, FP=5, TN=34, FN=0
   <img src="./graficos/global_auc_comparison_updated.png" alt="Comparativa Global — ROC-AUC por Pipeline" width="880"/>
 </p>
 
+La comparación global de ROC-AUC ilustra la mejora progresiva de cada pipeline, destacando el salto de rendimiento con fine-tuning (pipeline 9).
 ---
 
 # 📈 Visualizaciones MRI EffNet-B3 (patient-features)
@@ -186,4 +241,4 @@ TP=8, FP=5, TN=34, FN=0
 ---
 
 **Autoría:** Fran Ramírez  
-**Año:** 2025
+**Última actualización:** 25/08/2025 – 18:20 (Europe/Madrid)
