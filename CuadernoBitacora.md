@@ -219,16 +219,42 @@ Tras el pipeline estable (fase 9), se detectaron problemas de compatibilidad ent
 - Aplicación de calibración mediante *temperature scaling*.  
 - Guardado de artefactos completos (CSV por slice, CSV por paciente, JSON con métricas, gráficas comparativas).  
 
-**Resultados clave:**  
-- VAL: AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
-- TEST: AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
-- El recall clínico en test vuelve a ser **perfecto (1.0)**, sacrificando precisión (0.47).  
+**Resultados clave:**
+- Pooling **mean**: VAL AUC=0.630, TEST AUC=0.546.  
+- Pooling **median**: TEST AUC=0.541.  
+- Pooling **top-k=0.2**: TEST AUC=0.583.  
+- Recall en TEST siempre 1.0, con precisión 0.47–0.49.
+
+**Gráfico:**  
+![Stable Plus comparativa](./graficos/stable_plus.png)
 
 **Conclusión:**  
-Pipeline 10 consolida la línea de MRI, con resultados estables y calibrados. Marca un cierre sólido antes de pasar a experimentos multimodales.
+Pipeline más robusto en recall absoluto, pero con AUC más bajo que el pipeline 9. Se plantea usarlo como **baseline clínico seguro** en cribado poblacional.
 
 ---
 
+## Comparativa Global
+
+<p align="center">
+  <img src="./graficos/comparativapipelines7-10.png" alt="Comparativa P1-P7 — ROC-AUC por Pipeline" width="880"/>
+</p>
+
+Gráfico de barras con ROC-AUC y PR-AUC en TEST para los tres pipelines más representativos:
+
+- P7 (finetuning clásico con B3).
+
+- P9 (stable, sin calibración).
+
+- P10 (stable plus con checkpoint limpio + calibración).
+
+---
+<p align="center">
+  <img src="./graficos/comparativapipelines7-10B.png" alt="Comparativa P1-P7 — Precisión-Recall por Pipeline" width="880"/>
+</p>
+
+Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
+
+---
 # 📅 Entradas Diarias (Agosto 2025)
 
 ### 📅 18/08/2025 – Migración a Colab GPU
@@ -303,13 +329,14 @@ Pipeline 10 consolida la línea de MRI, con resultados estables y calibrados. Ma
 ### 📅 26/08/2025 – Stable Plus (checkpoint limpio + calibración)
 
 - **Acción:**  
-  - Reconstrucción del checkpoint (`effb3_stable_seed42.pth`) a un formato limpio y compatible.  
+  - Reconstrucción del checkpoint (`effb3_stable_seed42.pth`) a un formato limpio y compatible. 
   - Carga de pesos (99.7% éxito), eliminando discrepancias de capas.  
-  - Aplicación de *temperature scaling* y ajuste de pooling.  
+  - Aplicación de *temperature scaling* y ajuste de pooling: Pruebas de inferencia con pooling mean, median y top-k.  
 
 - **Resultados:**  
   - VAL: AUC=0.63 | PR-AUC=0.67 | Recall≈0.85  
   - TEST: AUC=0.55 | PR-AUC=0.53 | Recall=1.0  
+  - Recall=1.0 en TEST para todas las variantes, AUC entre 0.54–0.58.  
   - Se confirmó estabilidad en los artefactos (CSV, JSON, gráficas).  
 
 - **Artefactos:**  
@@ -319,7 +346,30 @@ Pipeline 10 consolida la línea de MRI, con resultados estables y calibrados. Ma
   - Gráficas comparativas en `graphs_from_metrics/`.  
 
 - **Conclusión:**  
-  Pipeline estable y calibrado, recuperando recall perfecto en test, aunque precisión moderada (~0.47). Sirve como base de referencia para cerrar la etapa MRI.
+  Pipeline estable y calibrado, recuperando recall perfecto en test, aunque precisión moderada (~0.47). Sirve como versión **ultra-conservadora** para detección precoz.  
+
+---
+
+### 📅 26/08/2025 17:35 – Validación extendida de Stable Plus
+
+- **Acción:**  
+  - Revisión completa de los artefactos generados en `ft_effb3_stable_colab_plus`.  
+  - Confirmación de que los CSV (slice/paciente) y JSON calibrado se cargaban sin errores.  
+  - Verificación de métricas con distintos poolings (mean, median, top-k).  
+  - Ajuste de umbral F1 (≈0.50) y validación de recall absoluto.  
+
+- **Resultados:**  
+  - Recall en TEST=1.0 bajo todos los poolings.  
+  - AUC osciló entre 0.54 y 0.58; precisión 0.47–0.49.  
+  - Artefactos gráficos confirmados en `graphs_from_metrics/`.  
+
+- **Artefactos:**  
+  - Checkpoint limpio y validado: `best_effb3_stable.pth`.  
+  - CSV val/test (slices y pacientes).  
+  - Eval JSON calibrado (`effb3_stable_patient_eval_calibrated.json`).  
+
+- **Conclusión:**  
+  La fase 10 queda consolidada como el cierre de la etapa MRI. Este pipeline representa la versión más **ultra-conservadora**, maximizando recall aunque a costa de precisión. Servirá de base para la futura etapa multimodal.
 
 ---
 
@@ -332,4 +382,4 @@ Pipeline 10 consolida la línea de MRI, con resultados estables y calibrados. Ma
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 26/08/2025 – 00:18
+**Última actualización:** 26/08/2025 – 17:35

@@ -13,9 +13,9 @@ Se construyeron **diez pipelines** para analizar y comparar modalidades:
 5. **COGNITIVA-AI-IMAGES-IMPROVED-GPU (ResNet18)** → embeddings ResNet18 entrenados en **Google Colab (GPU)**.  
 6. **COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED (EffNet-B3)** → embeddings EfficientNet-B3 + ensemble LR+XGB a nivel paciente.  
 7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet-B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.  
-8. **COGNITIVA-AI-FINETUNING-IMPROVED**  → Mejoras de fine-tuning (calibración de probabilidades).
-9. **COGNITIVA-AI-FINETUNING-STABLE** → Retraining estable de EfficientNet-B3 en **Google Colab (GPU)** con caché SSD, *temperature scaling* y selección de umbral clínico (recall≥0.95).
-10. **COGNITIVA-AI-FINETUNING-STABLE-PLUS** → checkpoint limpio + calibración final
+8. **COGNITIVA-AI-FINETUNING-IMPROVED**  → Mejoras de fine-tuning (calibración de probabilidades). Ajustes univariados (normalización, dropout, etc.).  
+9. **COGNITIVA-AI-FINETUNING-STABLE** → Retraining estable de EfficientNet-B3 en **Google Colab (GPU)** con caché SSD, *temperature scaling* y selección de umbral clínico (recall≥0.95). Entrenamiento estable con configuración refinada y early stopping.  
+10. **COGNITIVA-AI-FINETUNING-STABLE-PLUS** → Versión extendida con calibración adicional y pooling alternativo (mean, median, top-k).  
 
 ---
 
@@ -208,35 +208,43 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 ➡️ Mejor pipeline MRI logrado: se detectan el 100% de los casos positivos en test (sin falsos negativos) al costo de algunos falsos positivos (precision ~62%). El modelo fine-tune calibrado ofrece así alta sensibilidad adecuada para cribado clínico, acercando el rendimiento MRI al nivel de los datos clínicos puros.
 ---
 
-# 🔟 COGNITIVA-AI-FINETUNING-STABLE-PLUS (checkpoint limpio + calibración final)
+# 🔟 COGNITIVA-AI-FINETUNING-STABLE-PLUS (EffNet-B3 con calibración extendida)
 
 - **Notebook:** `cognitiva_ai_finetuning_stable_plus.ipynb`  
 - **Motivación:** El pipeline 9 (Stable) aportaba estabilidad, pero arrastraba problemas de correspondencia entre checkpoints y arquitectura, además de no incluir calibración explícita. Pipeline 10 surge para **normalizar completamente el checkpoint, asegurar compatibilidad de pesos (99.7% cargados) y aplicar calibración final** (*temperature scaling*).  
 - **Configuración técnica:**  
   - Arquitectura: EfficientNet-B3 con salida binaria.  
+  - Checkpoint limpio (`best_effb3_stable.pth`), reconstruido desde `effb3_stable_seed42.pth`.  
   - Normalización robusta de pesos: conversión de checkpoint entrenado a formato limpio.  
-  - Calibración: *temperature scaling* sobre logits para ajustar probabilidades.  
-  - Pooling a nivel paciente: media (mean), median y variantes top-k.  
-- **Resultados clave (paciente-nivel):**  
-  - VAL: AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
-  - TEST: AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
-- **Conclusión:** el pipeline 10 logra **recall=1.0 en test**, lo que lo convierte en la opción más sensible para cribado clínico temprano, aunque con sacrificio en AUC y precisión. Cierra la etapa de *solo MRI* antes de avanzar a la fusión multimodal.
+  - Calibración: *temperature scaling* (T≈2.3) sobre logits + ajuste de umbral F1.  
+  - Pooling a nivel paciente: mean, median y variantes top-k.  
+  - Evaluación sobre cohortes: **VAL=47 pacientes**, **TEST=47 pacientes**. 
+### 📊 Resultados finales (nivel paciente)
+
+| Pooling   | AUC (VAL) | PR-AUC (VAL) | AUC (TEST) | PR-AUC (TEST) | Recall TEST | Precision TEST |
+|-----------|-----------|--------------|------------|---------------|-------------|----------------|
+| mean      | 0.630     | 0.667        | 0.546      | 0.526         | 1.0         | 0.47           |
+| median    | 0.643     | 0.653        | 0.541      | 0.513         | 1.0         | 0.48           |
+| top-k=0.2 | 0.602     | 0.655        | 0.583      | 0.502         | 1.0         | 0.49           |
+
+**Conclusión:** el pipeline 10 logra **recall=1.0 en test bajo todos los métodos de pooling**, lo que lo convierte en la opción más sensible para cribado clínico temprano, aunque con sacrificio en AUC y precisión. Cierra la etapa de *solo MRI* antes de avanzar a la fusión multimodal.
+
+➡️ Aunque los valores AUC bajaron frente a Pipeline 9, se gana **robustez en calibración y recall=1.0** bajo distintos métodos de pooling.  
 
 ---
 
 # 📊 Comparativa Global (pipelines 1–10)
 
-| Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc | Recall | Precision |
-|----------|-----------------|-------------------|------------|--------|-----|--------|-----------|
-| P1       | Clínico OASIS-2 | XGB               | 0.897      | —      | —   | —      | —         |
-| P2       | Clínico fusion  | XGB               | 0.991      | —      | —   | ~1.0   | —         |
-| P3       | MRI OASIS-2     | ResNet50          | 0.938      | —      | —   | —      | —         |
-| P5       | MRI Colab       | ResNet18 + Calib  | 0.724      | 0.606  | 0.60| 0.80   | 0.52      |
-| P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70| 0.90   | 0.60      |
-| P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0   | 0.625     |
-| P9       | MRI Colab       | EffNet-B3 stable  | 0.74       | 0.63   | 0.72| 0.65   | 0.62      |
-| P10      | Fine-Tuning B3 Stable Plus | EffNet-B3 calibrado | 0.63 | 0.55 | 1.00 | 0.47 |
-
+| Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc  | Recall | Precision |
+|----------|-----------------|-------------------|------------|--------|------|--------|-----------|
+| P1       | Clínico OASIS-2 | XGB               | 0.897      | —      | —    | —      | —         |
+| P2       | Clínico fusion  | XGB               | 0.991      | —      | —    | ~1.0   | —         |
+| P3       | MRI OASIS-2     | ResNet50          | 0.938      | —      | —    | —      | —         |
+| P5       | MRI Colab       | ResNet18 + Calib  | 0.724      | 0.606  | 0.60 | 0.80   | 0.52      |
+| P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70 | 0.90   | 0.60      |
+| P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0    | 0.625     |
+| P9       | MRI Colab       | EffNet-B3 stable  | 0.740      | 0.630  | 0.72 | 0.65   | 0.62      |
+| P10      | MRI Colab       | EffNet-B3 stable+calib | 0.546–0.583 | 0.50–0.53 | 0.51–0.55 | 1.0 | 0.47–0.49 |
 
 <p align="center">
   <img src="./graficos/global_auc_comparison_updated.png" alt="Comparativa Global — ROC-AUC por Pipeline" width="880"/>
@@ -245,29 +253,27 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 La comparación global de ROC-AUC ilustra la mejora progresiva de cada pipeline, destacando el salto de rendimiento con fine-tuning (pipeline 9).
 ---
 
-# 📈 Visualizaciones MRI EffNet-B3 (patient-features)
-
 <p align="center">
-  <img src="./graficos/mri_effb3_pf_auc.png" alt="MRI EffB3 patient-features — ROC-AUC (TEST)" width="720"/>
+  <img src="./graficos/comparativapipelines7-10.png" alt="Comparativa P1-P7 — ROC-AUC por Pipeline" width="880"/>
 </p>
 
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_prauc.png" alt="MRI EffB3 patient-features — PR-AUC (TEST)" width="720"/>
-</p>
+Gráfico de barras con ROC-AUC y PR-AUC en TEST para los tres pipelines más representativos:
+
+- P7 (finetuning clásico con B3).
+
+- P9 (stable, sin calibración).
+
+- P10 (stable plus con checkpoint limpio + calibración).
+
+---
 
 <p align="center">
-  <img src="./graficos/mri_effb3_pf_recall.png" alt="MRI EffB3 patient-features — Recall (TEST)" width="720"/>
+  <img src="./graficos/comparativapipelines7-10B.png" alt="Comparativa P1-P7 — Precisión-Recall por Pipeline" width="880"/>
 </p>
 
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_precision.png" alt="MRI EffB3 patient-features — Precisión (TEST)" width="720"/>
-</p>
-
-<p align="center">
-  <img src="./graficos/mri_effb3_pf_accuracy.png" alt="MRI EffB3 patient-features — Accuracy (TEST)" width="720"/>
-</p>
+Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 26/08/2025 – 00:09
+**Última actualización:** 26/08/2025 – 17:33

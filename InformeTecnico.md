@@ -228,17 +228,23 @@ Modelo MRI altamente sensible y calibrado. Por primera vez se detecta el 100% de
 ## 🔟 Pipeline 10 – Fine-Tuning Stable Plus (checkpoint limpio + calibración final)
 
 **Motivación:**  
-El pipeline 9 ofrecía estabilidad, pero los checkpoints entrenados no siempre coincidían con la arquitectura definida, cargando <1% de pesos en algunos intentos. Era necesario **reprocesar el checkpoint**, asegurar la integridad de pesos y aplicar calibración para obtener resultados reproducibles.
+El pipeline 9 ofrecía estabilidad, pero los checkpoints entrenados no siempre coincidían con la arquitectura definida, cargando <1% de pesos en algunos intentos. Era necesario **reprocesar el checkpoint**, asegurar la integridad de pesos y aplicar calibración para obtener resultados reproducibles.  
+Este pipeline se enfocó en reforzar la **calibración y pooling** para asegurar recall absoluto, incluso sacrificando métricas globales.
 
 **Configuración:**  
 - Modelo: EfficientNet-B3 binario (head adaptada).  
 - Checkpoint: `effb3_stable_seed42.pth`, reconstruido a `best_effb3_stable.pth` (99.7% de pesos cargados).  
-- Calibración: *temperature scaling* aplicado sobre logits.  
-- Pooling: estrategias mean, median y top-k.  
+- Calibración: *temperature scaling* (T≈2.3) aplicado sobre logits.  
+- Pooling: estrategias mean, median y top-k (0.2, 0.3).  
+- Evaluación: cohortes de 47 pacientes (VAL) y 47 pacientes (TEST).  
 
 **Resultados:**  
-- **VAL (n=47):** AUC=0.63 | PR-AUC=0.67 | Acc≈0.53 | P≈0.47 | R≈0.85  
-- **TEST (n=47):** AUC=0.55 | PR-AUC=0.53 | Acc≈0.51 | P≈0.47 | R=1.0  
+
+| Pooling   | AUC (VAL) | PR-AUC (VAL) | AUC (TEST) | PR-AUC (TEST) | Recall TEST | Precision TEST |
+|-----------|-----------|--------------|------------|---------------|-------------|----------------|
+| mean      | 0.630     | 0.667        | 0.546      | 0.526         | 1.0         | 0.47           |
+| median    | 0.643     | 0.653        | 0.541      | 0.513         | 1.0         | 0.48           |
+| top-k=0.2 | 0.602     | 0.655        | 0.583      | 0.502         | 1.0         | 0.49           |
 
 **Artefactos generados:**  
 - Checkpoint limpio en `/ft_effb3_stable_colab_plus/best_effb3_stable.pth`.  
@@ -247,7 +253,7 @@ El pipeline 9 ofrecía estabilidad, pero los checkpoints entrenados no siempre c
 - Gráficas comparativas AUC, PR-AUC, precisión y recall.  
 
 **Conclusión:**  
-Pipeline 10 logra consolidar la línea MRI con un recall perfecto en test (1.0), asegurando sensibilidad máxima para cribado clínico temprano. Si bien la precisión baja (0.47), marca un cierre robusto de la fase MRI antes de abordar multimodalidad.
+Pipeline 10 consolida la línea MRI con un recall perfecto en test (1.0), asegurando sensibilidad máxima para cribado clínico temprano. Aunque la precisión baja (~0.47), este pipeline marca el cierre robusto de la etapa **MRI-only** y deja el terreno preparado para la fusión multimodal.
 
 ---
 
@@ -255,16 +261,37 @@ Pipeline 10 logra consolidar la línea MRI con un recall perfecto en test (1.0),
 
 ## 📊 Comparativa Global (pipelines 1–10)
 
-| Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc | Recall | Precision |
-|----------|-----------------|-------------------|------------|--------|-----|--------|-----------|
-| P1       | Clínico OASIS-2 | XGB               | 0.897      | —      | —   | —      | —         |
-| P2       | Clínico fusion  | XGB               | 0.991      | —      | —   | ~1.0   | —         |
-| P3       | MRI OASIS-2     | ResNet50          | 0.938      | —      | —   | —      | —         |
-| P5       | MRI Colab       | ResNet18 + Calib  | 0.724      | 0.606  | 0.60| 0.80   | 0.52      |
-| P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70| 0.90   | 0.60      |
-| P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0   | 0.625     |
-| P9       | MRI Colab       | EffNet-B3 stable  | 0.74       | 0.63   | 0.72| 0.65   | 0.62      |
-| P10      | Fine-Tuning B3 Stable Plus | EffNet-B3 calibrado | 0.63 | 0.55 | 1.00 | 0.47 |
+| Pipeline | Modalidad        | Modelo            | AUC (Test) | PR-AUC | Acc  | Recall | Precision |
+|----------|-----------------|-------------------|------------|--------|------|--------|-----------|
+| P1       | Clínico OASIS-2 | XGB               | 0.897      | —      | —    | —      | —         |
+| P2       | Clínico fusion  | XGB               | 0.991      | —      | —    | ~1.0   | —         |
+| P3       | MRI OASIS-2     | ResNet50          | 0.938      | —      | —    | —      | —         |
+| P5       | MRI Colab       | ResNet18 + Calib  | 0.724      | 0.606  | 0.60 | 0.80   | 0.52      |
+| P6       | MRI Colab       | EffNet-B3 embed   | 0.704      | 0.623  | 0.70 | 0.90   | 0.60      |
+| P7       | MRI Colab       | EffNet-B3 finetune| 0.876      | 0.762  | 0.745| 1.0    | 0.625     |
+| P9       | MRI Colab       | EffNet-B3 stable  | 0.740      | 0.630  | 0.72 | 0.65   | 0.62      |
+| P10      | MRI Colab       | EffNet-B3 stable+calib | 0.546–0.583 | 0.50–0.53 | 0.51–0.55 | 1.0 | 0.47–0.49 |
+
+---
+
+<p align="center">
+  <img src="./graficos/comparativapipelines7-10.png" alt="Comparativa P1-P7 — ROC-AUC por Pipeline" width="880"/>
+</p>
+
+Gráfico de barras con ROC-AUC y PR-AUC en TEST para los tres pipelines más representativos:
+
+- P7 (finetuning clásico con B3).
+
+- P9 (stable, sin calibración).
+
+- P10 (stable plus con checkpoint limpio + calibración).
+
+---
+<p align="center">
+  <img src="./graficos/comparativapipelines7-10B.png" alt="Comparativa P1-P7 — Precisión-Recall por Pipeline" width="880"/>
+</p>
+
+Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
 
@@ -332,4 +359,4 @@ Pipeline 10 logra consolidar la línea MRI con un recall perfecto en test (1.0),
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 25/08/2025 – 18:57
+**Última actualización:** 26/08/2025 – 17:39
