@@ -50,6 +50,12 @@ Estas gráficas finales (confusión y barras comparativas de AUC y PR‑AUC) sim
 
 ---
 
+En la última extensión del pipeline 10 comprendimos que **ninguna técnica de pooling aislada era suficiente**: si bien la media recortada (TRIMMED) garantizaba una sensibilidad elevada, la precisión resultaba limitada. Inspirándonos en la práctica clínica, donde se consultan varias pruebas antes de un diagnóstico, creamos un **ensemble MRI** que combina tres miradas distintas de las imágenes (mean, trimmed y top-7 slices).  
+
+El resultado fue un modelo más equilibrado: mantiene la capacidad de detectar a la mayoría de pacientes en riesgo (recall alto), pero reduce los falsos positivos incrementando la precisión. Este hallazgo refuerza la metáfora clínica de que **la combinación de perspectivas complementarias ofrece un diagnóstico más fiable que una visión aislada**.
+
+---
+
 ### 5️⃣ El futuro multimodal
 - Narrativa: El siguiente paso es **fusionar clínico + MRI**.  
 - Visual sugerido: ilustración de dos ríos uniéndose en uno solo 🌊.  
@@ -138,3 +144,6 @@ Estas gráficas finales (confusión y barras comparativas de AUC y PR‑AUC) sim
 Este documento sirve como guion + storyboard inicial.  
 De aquí se puede pasar fácilmente a **PowerPoint/Google Slides/Canva** usando las visualizaciones y frases clave.
 
+
+
+Actualización: 28/08/2025 18:10

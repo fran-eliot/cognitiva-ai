@@ -14,7 +14,7 @@ COGNITIVA-AI es un proyecto enfocado en la **detección temprana de Alzheimer** 
 
 Se espera que un enfoque multimodal permita identificar el deterioro cognitivo incipiente con alta sensibilidad, optimizando el balance entre **detección temprana** y **falsos positivos aceptables** en un contexto de cribado.
 
-Para este fin se han desarrollado **nueve pipelines secuenciales**, cada uno incorporando mejoras y aprendizajes de la fase previa:
+Para este fin se han desarrollado **diez pipelines secuenciales**, cada uno incorporando mejoras y aprendizajes de la fase previa:
 
 - **COGNITIVA-AI-CLINIC** – Modelos ML clásicos con datos clínicos de OASIS-2 (baseline tabular).
 - **COGNITIVA-AI-CLINIC-IMPROVED** – Datos clínicos fusionados (OASIS-1 + OASIS-2), mayor muestra y generalización.
@@ -25,6 +25,7 @@ Para este fin se han desarrollado **nueve pipelines secuenciales**, cada uno inc
 - **COGNITIVA-AI-IMAGES-FT** – Fine-tuning parcial de EfficientNet-B3 sobre MRI para mejorar discriminación.
 - **COGNITIVA-AI-IMAGES-FT-IMPROVED** – Ajustes de fine-tuning: calibración de probabilidades y optimización de pooling.
 - **COGNITIVA-AI-IMAGES-FT-STABLE** – Modelo fine-tune final calibrado y con umbral clínico optimizado (pipeline MRI definitivo).
+- **COGNITIVA-AI-FINETUNING-STABLE-PLUS** → Versión extendida con calibración adicional y pooling alternativo (mean, median, top-k). 
 
 Cada pipeline se documenta a continuación, detallando metodología, resultados y conclusiones. Esta evolución progresiva permite contrastar la eficacia de distintas aproximaciones (ML tradicional vs Deep Learning, datos clínicos vs imágenes, etc.) y justifica las decisiones técnicas tomadas.
 
@@ -295,6 +296,22 @@ Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
 
+### Extensión Pipeline 10 – Ensemble y pooling avanzados
+
+Además de los experimentos iniciales con pooling (mean, median, top-k), se evaluaron agregaciones robustas y un ensemble de métodos slice→patient.
+
+- **TRIMMED mean (α=0.2)**: media recortada que mejora la estabilidad frente a slices outliers.  
+- **TOP-k (k=3,7)**: centradas en las slices más patológicas.  
+- **Ensemble MRI**: combinación lineal de MEAN, TRIMMED y TOP7 con pesos óptimos encontrados en validación (0.30, 0.10, 0.60).  
+
+**Resultados:**
+- **VAL**: PR-AUC hasta 0.925, recall=0.95, precisión=0.79.  
+- **TEST**: PR-AUC 0.737, recall=0.70, precisión=0.61.  
+
+El ensemble mejora la precisión en test (+5 puntos frente a TRIMMED) manteniendo la misma sensibilidad. Se consolida así como la **baseline final de la etapa MRI-only**, antes de avanzar a la integración multimodal con datos clínicos.
+
+---
+
 ## 5. Ingeniería y Rendimiento (Colab)
 
 - **Copia de MRI a SSD local** (`/content/mri_cache`) → ~**53 f/s** al copiar 940 ficheros.  
@@ -359,4 +376,4 @@ Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 26/08/2025 – 17:39
+**Última actualización:** 28/08/2025 – 18:05

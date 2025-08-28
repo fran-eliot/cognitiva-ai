@@ -255,6 +255,21 @@ Gráfico de barras con ROC-AUC y PR-AUC en TEST para los tres pipelines más rep
 Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
+
+## 🔄 Fase complementaria – Pipeline 10 (Stable Plus con agregaciones avanzadas)
+
+En esta fase se exploraron variantes adicionales sobre el pipeline 10, sin cambiar de notebook pero ampliando las técnicas de agregación y evaluación.
+
+- **Acción**: Implementar pooling robustos (TRIMMED, TOP-k) y un ensemble MRI.  
+- **Metodología**:  
+  - Ajuste de pesos del ensemble (mean=0.30, trimmed=0.10, top7=0.60) mediante grid search sobre validación.  
+  - Calibración final de logits con *temperature scaling* (T≈0.28).  
+- **Resultados principales**:  
+  - TRIMMED: Recall=0.75, Precisión=0.56, PR-AUC=0.746 (TEST).  
+  - Ensemble: Recall=0.70, Precisión=0.61, PR-AUC=0.737 (TEST).  
+- **Conclusión**: Aunque TRIMMED asegura mayor sensibilidad, el ensemble proporciona un balance clínico más realista al aumentar la precisión, reduciendo falsos positivos sin comprometer excesivamente la detección. Se adopta como baseline final de la etapa MRI.
+
+---
 # 📅 Entradas Diarias (Agosto 2025)
 
 ### 📅 18/08/2025 – Migración a Colab GPU
@@ -373,6 +388,14 @@ Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
 
+### [2025-08-28] – Avance en ensemble MRI
+- Probados métodos TRIMMED, TOP3, TOP7 y un ensemble de agregaciones.  
+- El ensemble alcanzó mejor equilibrio: recall=0.70 y precisión=0.61 en test.  
+- Guardadas curvas ROC y PR comparativas (trimmed vs ensemble).  
+- Actualizados los resultados en `comparison_patient_level_eval.csv`.  
+
+---
+
 # 📌 Conclusión global
 - **Clínico (fusionado OASIS1+2)** → proporciona el mejor AUC global (≈0.99) gracias a fuertes marcadores como CDR/MMSE, aunque puede complementarse en sensibilidad.
 - **MRI (GPU)** → los pipelines evolucionaron de AUC ~0.72 a ~0.88, alcanzando recall 1.0 tras calibración; esto demuestra que la información visual aporta detección temprana (atrofia incipiente) que puede adelantarse a signos clínicos, aunque con más falsos positivos.
@@ -382,4 +405,4 @@ Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 ---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 26/08/2025 – 17:35
+**Última actualización:** 28/08/2025 – 18:07

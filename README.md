@@ -275,5 +275,36 @@ Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
 
 ---
 
+### 🔄 Extensión de Pipeline 10: Agregaciones avanzadas y Ensemble MRI
+
+Tras la fase inicial del pipeline 10, en la que se demostró la posibilidad de alcanzar *recall=1.0* en test bajo distintos métodos de pooling slice→patient, se llevó a cabo una segunda batería de experimentos orientados a mejorar la **precisión clínica** sin renunciar a la alta sensibilidad.  
+
+#### 🔹 Estrategias evaluadas
+- **Agregaciones robustas**:  
+  - *TRIMMED mean* (media recortada al 20%, eliminando los extremos para mitigar outliers).  
+  - *TOP-k slices* (promedio de las k slices más “patológicas” según logit, con k=3 y k=7).  
+- **Ensemble MRI**:  
+  - Combinación lineal de tres agregaciones (MEAN, TRIMMED, TOP7), con pesos ajustados mediante búsqueda en validación para maximizar PR-AUC.  
+  - Pesos finales: **mean=0.30, trimmed=0.10, top7=0.60**.
+
+#### 📊 Resultados complementarios (nivel paciente)
+
+| Método              | AUC (VAL) | PR-AUC (VAL) | AUC (TEST) | PR-AUC (TEST) | Recall TEST | Precision TEST |
+|---------------------|-----------|--------------|------------|---------------|-------------|----------------|
+| TRIMMED (α=0.2)     | 0.894     | 0.905        | 0.744      | 0.746         | 0.75        | 0.56           |
+| TOP3                | 0.902     | 0.903        | 0.743      | 0.698         | 0.35        | 0.70           |
+| TOP7                | 0.900     | 0.912        | 0.743      | 0.726         | 0.50        | 0.71           |
+| **Ensemble (M+T+7)**| 0.913     | 0.925        | 0.754      | 0.737         | 0.70        | **0.61**       |
+
+#### ✅ Conclusión ampliada
+El complemento al pipeline 10 muestra que:  
+- **TRIMMED** sigue siendo la mejor variante para maximizar sensibilidad pura.  
+- **TOP-k** ofrece alternativas más conservadoras, con mayor precisión pero menor recall.  
+- **El ensemble** logra un equilibrio clínico más sólido: mantiene recall en 0.70 en test y mejora la precisión hasta 0.61, elevando también la exactitud global.  
+
+Con esta extensión, el pipeline 10 no solo asegura **recall=1.0 como cribado clínico temprano**, sino que también aporta una variante optimizada para **escenarios de uso real**, donde la precisión adicional reduce falsos positivos innecesarios antes de pasar a pruebas complementarias.
+
+---
+
 **Autoría:** Fran Ramírez  
-**Última actualización:** 26/08/2025 – 17:33
+**Última actualización:** 28/08/2025 – 18:01
