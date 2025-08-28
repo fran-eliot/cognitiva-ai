@@ -269,6 +269,23 @@ En esta fase se exploraron variantes adicionales sobre el pipeline 10, sin cambi
   - Ensemble: Recall=0.70, Precisión=0.61, PR-AUC=0.737 (TEST).  
 - **Conclusión**: Aunque TRIMMED asegura mayor sensibilidad, el ensemble proporciona un balance clínico más realista al aumentar la precisión, reduciendo falsos positivos sin comprometer excesivamente la detección. Se adopta como baseline final de la etapa MRI.
 
+## Comparativa(P1-P10)
+
+## 📊 Comparativa Global (pipelines 1–10)
+
+| Pipeline | Modalidad        | Modelo                   | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
+|----------|-----------------|--------------------------|------------|--------|-------|--------|-----------|
+| P1       | Clínico OASIS-2 | XGB                      | 0.897      | —      | —     | —      | —         |
+| P2       | Clínico fusion  | XGB                      | 0.991      | —      | —     | ~1.0   | —         |
+| P3       | MRI OASIS-2     | ResNet50                 | 0.938      | —      | —     | —      | —         |
+| P5       | MRI Colab       | ResNet18 + Calib         | 0.724      | 0.606  | 0.60  | 0.80   | 0.52      |
+| P6       | MRI Colab       | EffNet-B3 embed          | 0.704      | 0.623  | 0.70  | 0.90   | 0.60      |
+| P7       | MRI Colab       | EffNet-B3 finetune       | 0.876      | 0.762  | 0.745 | 1.0    | 0.625     |
+| P9       | MRI Colab       | EffNet-B3 stable         | 0.740      | 0.630  | 0.72  | 0.65   | 0.62      |
+| P10      | MRI Colab       | EffNet-B3 stable+calib   | 0.546–0.583| 0.50–0.53 | 0.51–0.55 | 1.0 | 0.47–0.49 |
+| P10-ext  | MRI Colab       | EffNet-B3 + TRIMMED      | 0.744      | 0.746  | 0.64  | 0.75   | 0.56      |
+| P10-ext  | MRI Colab       | EffNet-B3 + Ensemble(M+T+7) | 0.754   | 0.737  | 0.68  | 0.70   | 0.61      |
+
 ---
 # 📅 Entradas Diarias (Agosto 2025)
 
