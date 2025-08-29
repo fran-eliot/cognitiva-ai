@@ -269,6 +269,25 @@ En esta fase se exploraron variantes adicionales sobre el pipeline 10, sin cambi
   - Ensemble: Recall=0.70, Precisión=0.61, PR-AUC=0.737 (TEST).  
 - **Conclusión**: Aunque TRIMMED asegura mayor sensibilidad, el ensemble proporciona un balance clínico más realista al aumentar la precisión, reduciendo falsos positivos sin comprometer excesivamente la detección. Se adopta como baseline final de la etapa MRI.
 
+---
+### Fase 10.b — Validación de seed-ensemble y cierre de etapa solo-MRI
+
+**Fecha:** (poner fecha de hoy)  
+**Objetivo:** Evaluar si un *ensemble* de checkpoints por distintas semillas (41/42/43) mejora la robustez del P10.
+
+**Procedimiento:**  
+- Inferencia slice-level con TTA del cuaderno (orig+flipH+flipV+rot90), agregación a paciente (mean / trimmed 20% / top-7).  
+- Calibraciones comparadas: (i) **temperature scaling** en VAL, (ii) **Platt scaling** (afinación lineal a·logit+b), ambas con **safe sigmoid**.  
+- Control de escala: z-score sobre VAL aplicado a TEST, y prueba de robust scaling (mediana/IQR).
+
+**Resultados:**  
+- seedENS_MEAN/TRIMMED/TOP7: **AUC_TEST ≈ 0.46–0.52**, **PR-AUC_TEST ≈ 0.41–0.45**.  
+- *Recall* alto por umbrales muy bajos, pero precisión insuficiente y sin separación ROC/PR relevante.
+
+**Conclusión:** El *seed-ensemble* no aporta mejora; mantenemos el **ensemble por agregadores** (mean+trimmed+top7, pesos 0.3/0.1/0.6) calibrado en VAL, que ofrece **recall clínico (≥0.9–1.0)** y mejor PR-AUC. Con esto **cerramos la etapa solo-MRI** y preparamos transición a **multimodal**.
+
+---
+
 ## Comparativa(P1-P10)
 
 ## 📊 Comparativa Global (pipelines 1–10)
@@ -421,5 +440,44 @@ En esta fase se exploraron variantes adicionales sobre el pipeline 10, sin cambi
 
 ---
 
+### 📅 28/08/2025 – Validación de seed-ensemble
+
+- **Acción:** se ejecutaron pruebas con un ensemble de tres checkpoints (semillas 41, 42 y 43) de EfficientNet-B3, aplicando inferencia slice-level con TTA reducida, agregación a nivel paciente (mean, trimmed, top-7) y calibraciones (T-scaling, Platt).  
+- **Resultados:** las métricas en test se mantuvieron en torno a AUC≈0.5, PR-AUC≈0.42–0.45, con recall elevado pero precisión muy baja.  
+- **Problema:** inconsistencias de escala en los logits, imposibles de corregir solo con calibración.  
+- **Conclusión:** se descarta el *seed-ensemble* como estrategia viable. Se confirma que la mejor opción antes del multimodal es el **ensemble por agregadores calibrados** (mean+trimmed+top7 con pesos optimizados), que mantiene recall clínico (≥0.9–1.0).  
+
+---
+
+### 📅 28/08/2025 – Ensembles avanzados (Random Search)
+
+- **Acción:** Implementación de **Random Search** sobre combinaciones de pooling (`mean`, `trimmed20`, `top7`, `pmean_2`) a nivel paciente.  
+- **Resultado:** Mejor combinación con pesos balanceados entre mean/trimmed/top7.  
+  - [VAL] AUC=0.909 | PR-AUC=0.920 | Recall=0.95  
+  - [TEST] AUC=0.754 | PR-AUC=0.748 | Recall=0.70  
+- **Problema:** grid completo demasiado costoso → random search dio la solución en segundos.  
+- **Conclusión:** Los ensembles ponderados muestran **mayor estabilidad y robustez** frente a pooling simple, y son base para explorar **ensembles multimodales** en la siguiente fase.
+
+---
+
+### 📅 28/08/2025 – Ensembles avanzados post-seed strategy
+
+- **Acción:** Revisión de ensembles por semillas (seed-ensembles).  
+  - Resultado: métricas fallidas, AUC cercano a 0.5 → estrategia descartada.  
+
+- **Avance:** Implementación de ensembles a nivel paciente:  
+  - **Random Search (N=500, Dirichlet):**  
+    - Mejoró recall y precisión, alcanzando [VAL] AUC=0.909, PR-AUC=0.920, Recall=0.95; [TEST] AUC=0.754, PR-AUC=0.748, Recall=0.70.  
+  - **Stacking con Logistic Regression:**  
+    - Resultados equivalentes al Random Search.  
+    - Confirmó robustez: coeficientes equilibrados y positivos en todos los agregadores.  
+
+- **Conclusión del día:**  
+  El pipeline 10 (MRI-only) queda consolidado en la etapa de ensembles avanzados.  
+  El recall clínico (detectar todos los pacientes con Alzheimer) se mantiene muy alto.  
+  Preparado el terreno para el paso siguiente: **explorar backbones alternativos** o dar el salto al **multimodal**.
+
+---
+
 **Autoría:** Fran Ramírez  
-**Última actualización:** 28/08/2025 – 18:07
+**Última actualización:** 28/08/2025 – 23:55

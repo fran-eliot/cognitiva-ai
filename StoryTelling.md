@@ -56,6 +56,12 @@ El resultado fue un modelo más equilibrado: mantiene la capacidad de detectar a
 
 ---
 
+Para comprobar si la diversidad de inicializaciones ayudaba, intentamos un *seed-ensemble* (tres semillas) manteniendo exactamente las transformaciones del cuaderno. 
+El veredicto fue contundente: el *ensemble* por semillas no recuperó señal (AUC≈0.5), mientras que el *ensemble* por agregación de *slices* a paciente (combinando **mean**, **trimmed** y **top-k**) sí sostuvo el **recall** clínicamente deseado. 
+La historia de Pipeline 10, por tanto, no es “más modelos”, sino “mejor agregación y calibración”.
+
+---
+
 ### 5️⃣ El futuro multimodal
 - Narrativa: El siguiente paso es **fusionar clínico + MRI**.  
 - Visual sugerido: ilustración de dos ríos uniéndose en uno solo 🌊.  

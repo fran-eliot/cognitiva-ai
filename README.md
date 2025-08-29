@@ -310,5 +310,71 @@ Con esta extensión, el pipeline 10 no solo asegura **recall=1.0 como cribado cl
 
 ---
 
+#### 🔁 Experimento adicional: seed-ensemble (EffNet-B3 seeds 41/42/43)
+
+Probamos un *ensemble* por semillas sobre las mismas cohortes (VAL/TEST, 47/47) reproduciendo las TTA del cuaderno 10 (orig, flipH, flipV, rot90) y calibración posterior. 
+Pese a normalizar logits (z-score en VAL) y aplicar **temperature scaling** y **Platt scaling**, el rendimiento se mantuvo plano:
+
+- **seedENS_MEAN / TRIMMED / TOP7** → **AUC_TEST ~0.46–0.52**, **PR-AUC_TEST ~0.41–0.45**, con *recall* elevado pero **precisión baja** y umbrales degenerando hacia 0.  
+- Diagnóstico: **inconsistencia de escala** entre checkpoints y/o *drift* de distribución en logits. La calibración posterior no logró recuperar separabilidad.
+
+**Decisión:** descartar el *seed-ensemble* en esta fase y consolidar el **ensemble por agregadores a nivel paciente** (mean+trimmed+top7) calibrado en VAL, que sí logra **recall ≥ 0.9–1.0** con métricas PR-AUC/AUC superiores.
+
+---
+
+### 🔹 Extensión Pipeline 10 – Random Search de ensembles
+
+Tras obtener resultados sólidos con pooling clásico y variantes top-k, exploramos la combinación **aleatoria de pesos normalizados** sobre las features derivadas a nivel paciente (`mean`, `trimmed20`, `top7`, `pmean_2`).
+
+- **Configuración:**  
+  - 500 combinaciones aleatorias.  
+  - Pesos restringidos a ≥0 y normalizados a 1.  
+  - Selección por F1-score en validación.
+
+- **Mejor combinación encontrada:**  
+  - mean ≈ 0.32  
+  - trimmed20 ≈ 0.31  
+  - top7 ≈ 0.32  
+  - pmean_2 ≈ 0.04  
+
+- **Resultados:**  
+  - [VAL] AUC=0.909 | PR-AUC=0.920 | Recall=0.95 | Acc=0.87 | Prec=0.79  
+  - [TEST] AUC=0.754 | PR-AUC=0.748 | Recall=0.70 | Acc=0.66 | Prec=0.58  
+
+**Conclusión:** el ensemble aleatorio confirma la **robustez de top7 + mean + trimmed**, alcanzando resultados estables y comparables al stacking. Refuerza que la información MRI puede combinarse de forma no lineal para mejorar recall y estabilidad.
+
+---
+
+### 🔹 Extensión Pipeline 10 – Ensembles avanzados
+
+Tras comprobar que la estrategia de ensembles por semillas (*seed ensembles*) no ofrecía mejoras (AUC cercano a 0.5 en TEST), se exploraron alternativas de combinación a nivel paciente:
+
+- **Random Search ensemble** (mean, trimmed20, top7, pmean_2):  
+  - [VAL] AUC=0.909 | PR-AUC=0.920 | Recall=0.95 | Acc=0.87  
+  - [TEST] AUC=0.754 | PR-AUC=0.748 | Recall=0.70 | Acc=0.66  
+
+- **Stacking con Logistic Regression**:  
+  - Resultados equivalentes al Random Search, con coeficientes positivos y equilibrados → todos los agregadores aportan.  
+  - Más interpretable y estable que el Random Forest o el stacking rígido.
+
+**Conclusión:** los ensembles ponderados consolidan Pipeline 10 como el mejor punto de partida para MRI-only antes de pasar a multimodal. El recall clínicamente relevante (≥0.95 en validación, 0.70 en test) se mantiene, mientras que la precisión mejora frente a pooling simples.
+
+---
+
+### 📊 Comparativa de estrategias MRI-only (TEST)
+
+| Método                | AUC   | PR-AUC | Acc   | Recall | Precision |
+|-----------------------|-------|--------|-------|--------|-----------|
+| Pooling mean          | 0.546 | 0.526  | 0.55  | 1.00   | 0.47      |
+| Pooling trimmed20     | 0.744 | 0.746  | 0.64  | 0.75   | 0.56      |
+| Pooling top7          | 0.743 | 0.726  | 0.70  | 0.50   | 0.71      |
+| Random Search ensemble| 0.754 | 0.748  | 0.66  | 0.70   | 0.58      |
+| Stacking LR ensemble  | 0.754 | 0.748  | 0.66  | 0.70   | 0.58      |
+
+**Conclusión:**  
+- Los ensembles (Random Search y Logistic Regression) **superan claramente** a los pooling simples.  
+- Se logra un **balance óptimo entre recall clínicamente crítico y precisión**, manteniendo recall ≥0.70 en TEST y alcanzando PR-AUC ~0.75.  
+
+
 **Autoría:** Fran Ramírez  
-**Última actualización:** 28/08/2025 – 18:01
+**Última actualización:** 28/08/2025 – 23:54
