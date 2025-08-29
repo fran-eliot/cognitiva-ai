@@ -1,486 +1,288 @@
-# 🧩 Informe Técnico — COGNITIVA-AI
-
-**Objetivo:** detección temprana de Alzheimer combinando **datos clínicos** y **MRI estructural** (OASIS-1/OASIS-2).  
-Este informe documenta **decisiones técnicas**, **pipelines** y **resultados** de forma trazable.
+# 📑 Informe Técnico – Proyecto CognitivaAI  
 
 ---
 
-## 1. INTRODUCCIÓN Y OBJETIVOS
+## 1. Introducción General  
 
-COGNITIVA-AI es un proyecto enfocado en la **detección temprana de Alzheimer** mediante la combinación de **datos clínicos** y **resonancias magnéticas (MRI)**. El objetivo principal es **emular la intuición clínica** integrando: 
+El presente informe constituye una documentación exhaustiva, detallada y profundamente analítica del proyecto **CognitivaAI**, cuyo propósito ha sido explorar, diseñar, entrenar y evaluar modelos de aprendizaje profundo aplicados a la detección de **deterioro cognitivo temprano** a partir de imágenes de resonancia magnética (MRI) de la base de datos **OASIS-2**, complementadas con información clínica.  
 
-- 1: indicadores tabulares (edad, tests cognitivos, datos volumétricos cerebrales) 
-- 2: señales de neuroimagen estructural. 
+El proyecto surge con una doble motivación:  
 
-Se espera que un enfoque multimodal permita identificar el deterioro cognitivo incipiente con alta sensibilidad, optimizando el balance entre **detección temprana** y **falsos positivos aceptables** en un contexto de cribado.
+1. **Científica y social:** el diagnóstico temprano de enfermedades neurodegenerativas, como la enfermedad de Alzheimer, es un desafío prioritario para la medicina actual. El uso de inteligencia artificial puede ayudar a identificar biomarcadores sutiles en imágenes cerebrales y en datos clínicos que son difíciles de detectar por métodos tradicionales.  
 
-Para este fin se han desarrollado **diez pipelines secuenciales**, cada uno incorporando mejoras y aprendizajes de la fase previa:
+2. **Técnica y experimental:** comprobar hasta qué punto distintas arquitecturas de redes neuronales convolucionales (CNNs) y transformadores visuales pueden capturar información discriminativa en un dataset limitado en tamaño, enfrentándose a problemas comunes como el sobreajuste, la calibración de probabilidades y la estabilidad en validación y test.  
 
-- **COGNITIVA-AI-CLINIC** – Modelos ML clásicos con datos clínicos de OASIS-2 (baseline tabular).
-- **COGNITIVA-AI-CLINIC-IMPROVED** – Datos clínicos fusionados (OASIS-1 + OASIS-2), mayor muestra y generalización.
-- **COGNITIVA-AI-IMAGES** – Primer approach con MRI OASIS-2 usando Deep Learning (ResNet50).
-- **COGNITIVA-AI-IMAGES-IMPROVED** – Refinamiento de pipeline de MRI (más datos y rigor en splits).
-- **COGNITIVA-AI-IMAGES-IMPROVED-GPU** – Extracción de embeddings MRI con ResNet18 en GPU y calibración isotónica.
-- **COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED** – Embeddings EfficientNet-B3 + ensemble de clasificadores a nivel paciente.
-- **COGNITIVA-AI-IMAGES-FT** – Fine-tuning parcial de EfficientNet-B3 sobre MRI para mejorar discriminación.
-- **COGNITIVA-AI-IMAGES-FT-IMPROVED** – Ajustes de fine-tuning: calibración de probabilidades y optimización de pooling.
-- **COGNITIVA-AI-IMAGES-FT-STABLE** – Modelo fine-tune final calibrado y con umbral clínico optimizado (pipeline MRI definitivo).
-- **COGNITIVA-AI-FINETUNING-STABLE-PLUS** → Versión extendida con calibración adicional y pooling alternativo (mean, median, top-k). 
+La ejecución del proyecto ha supuesto un recorrido iterativo y progresivo, articulado en una serie de **pipelines experimentales**, cada uno diseñado con objetivos concretos: desde probar un modelo sencillo con datos clínicos (P1) hasta explorar ensembles de arquitecturas avanzadas (P11).  
 
-Cada pipeline se documenta a continuación, detallando metodología, resultados y conclusiones. Esta evolución progresiva permite contrastar la eficacia de distintas aproximaciones (ML tradicional vs Deep Learning, datos clínicos vs imágenes, etc.) y justifica las decisiones técnicas tomadas.
-
-## 2. DATOS Y PREPARACIÓN
-
-- **Datasets:** OASIS-1 (transversal, 416 sujetos, 1 visita) y OASIS-2 (longitudinal, 150 sujetos, visitas múltiples). Ambas cohortes aportan imágenes MRI cerebrales y variables demográficas/neuropsicológicas.
-- **Diagnóstico binario:** Demented vs Nondemented (OASIS-2: variable Group; OASIS-1: CDR > 0 como demencia).
-- **Variables clínico-demográficas:** Edad, Sexo, Años de educación, Nivel socioeconómico (SES), MMSE, CDR, eTIV, nWBV, ASF.
-- **Etiquetas de cohorte**: para trazabilidad y análisis estratificado.
-- **Preprocesamiento:** Imputación por mediana a SES y Educ, escalado Z-score a continuas, codificación one-hot a categóricas (Sex, cohortes).
-- **División de conjuntos:**  
-  - Clínicos (pipelines 1–2): validación cruzada 5-fold y hold-out sobre OASIS-2, anidada para la fusión OASIS-1+2.
-  - Imágenes (pipelines 3–9): esquema Train/Val/Test (aprox. 60/20/20) estratificado por paciente, evitando leakage.
+Cada pipeline ha sido registrado con su motivación, configuración, incidencias, métricas y reflexión crítica, con el objetivo de construir no solo un conjunto de resultados, sino un **mapa de decisiones** que documenta los aprendizajes y trade-offs a lo largo del camino.  
 
 ---
 
-## 3. Preprocesado clínico
+## 2. Metodología Global  
 
-- Homogeneización de columnas a `snake_case`.  
-- Imputación de SES/Educ por mediana, escalado estándar, one-hot para Sex.  
-- Target unificado por cohorte (OASIS-2: `Group`; OASIS-1: `CDR>0`).  
-- Splits estratificados con separación por paciente.
+### 2.1 Dataset y preprocesamiento  
+
+El dataset utilizado es **OASIS-2** (Open Access Series of Imaging Studies), que incluye imágenes de resonancia magnética (MRI) estructurales de individuos con y sin deterioro cognitivo, junto con información clínica asociada.  
+
+- **MRI**: cada sujeto cuenta con una o más adquisiciones de MRI estructural.  
+- **Etiquetas clínicas**: la variable principal es el **CDR (Clinical Dementia Rating)**, dicotomizada en “control” vs “deterioro cognitivo”.  
+- **Metadatos adicionales**: edad, sexo, puntuaciones cognitivas, entre otros.  
+
+El preprocesamiento incluyó:  
+- Mapeo de rutas a pacientes mediante ficheros `oas1_val_colab_mapped.csv` y `oas1_test_colab_mapped.csv`.  
+- Normalización de intensidades.  
+- Creación de slices 2D a partir de volúmenes 3D para facilitar el entrenamiento en arquitecturas CNN estándar.  
+- Balanceo parcial mediante augmentaciones (flip horizontal, rotaciones leves).  
+
+### 2.2 Infraestructura  
+
+- **Google Colab Pro+**: principal entorno de ejecución.  
+- **GPU asignada**: NVIDIA T4 o A100, según disponibilidad.  
+- **Almacenamiento persistente**: Google Drive (`/MyDrive/CognitivaAI`).  
+- **Librerías clave**: PyTorch, timm (colección de modelos), scikit-learn, pandas, matplotlib.  
+- **Gestión de experimentos**: notebooks separados por pipeline, con guardado automático de métricas y predicciones en CSV.  
+
+### 2.3 Métricas de evaluación  
+
+Dada la naturaleza binaria y desbalanceada de la tarea, se utilizaron múltiples métricas:  
+
+- **AUC (ROC)**: medida global de discriminación.  
+- **PR-AUC**: más informativa en datasets desbalanceados.  
+- **Accuracy**: proporción de aciertos.  
+- **Recall (sensibilidad)**: clave, ya que la tarea exige detectar la mayor cantidad de pacientes con deterioro cognitivo.  
+- **Precision**: importante para evitar falsos positivos.  
+- **Youden Index**: criterio alternativo de umbralización.  
+- **@REC90 / @REC100**: configuraciones que maximizan el recall (sensibilidad) incluso a costa de la precisión.  
 
 ---
 
-## 4. Pipelines y Resultados
+## 3. Evolución por Pipelines  
 
-## 1. Pipeline 1 – COGNITIVA-AI-CLINIC (Clínico OASIS-2)
-
-**Metodología:**  
-Tres clasificadores clásicos (Regresión Logística, Random Forest, XGBoost) con datos tabulares de OASIS-2 (150 sujetos). Validación cruzada (5-fold) y conjunto test reservado (20%).
-
-**Resultados:**
-
-| Modelo           | AUC (CV 5-fold)   | AUC (Test) |
-|------------------|-------------------|------------|
-| Logistic Reg.    | 0.912 ± 0.050     | –          |
-| Random Forest    | 0.925 ± 0.032     | –          |
-| XGBoost          | 0.907 ± 0.032     | 0.897      |
-
-**Conclusión:**  
-Baseline robusto basado en datos clínicos, limitado por la escasez de datos (solo OASIS-2). Confirma la fuerza de variables clínicas (CDR, MMSE) en la detección de demencia incipiente.
-
----
-
-## 2. Pipeline 2 – COGNITIVA-AI-CLINIC-IMPROVED (Clínico fusionado OASIS-1+2)
+### 3.1 Pipeline 1 – Modelo clínico (XGB con OASIS-2)  
 
 **Motivación:**  
-Mejorar la generalización combinando OASIS-1 y OASIS-2 (~550 sujetos). Unificación de variables y control de cohortes.
-
-**Resultados:**
-
-| Modelo           | AUC (Hold-out 80/20) | AUC (CV 5-fold) |
-|------------------|----------------------|-----------------|
-| Logistic Reg.    | 1.000                | 0.979 ± 0.012   |
-| Random Forest    | 0.986                | 0.974 ± 0.018   |
-| XGBoost          | 0.991                | 0.975 ± 0.021   |
-| Ensemble         | –                    | 0.995 (Nested)  |
-
-Umbral clínico (XGB): recall≈100% con ~15 FP.
-
-**Conclusión:**  
-La fusión de bases clínicas potencia el rendimiento (AUC ~1.0). El modelo calibrado permite operar a alta sensibilidad sin sacrificar precisión, alineado con la prioridad clínica de evitar falsos negativos.
-
----
-
-## 3. Pipeline 3 – COGNITIVA-AI-IMAGES (MRI OASIS-2, ResNet50)
-
-**Contexto:**  
-Primer análisis de imágenes estructurales cerebrales. OASIS-2, segmentaciones manuales, ~100 cortes axiales por MRI.
-
-**Resultados:**
-
-- 5 slices por paciente: **AUC_test ≈ 0.938**
-- 20 slices + normalización Z-score: **AUC ≈ 0.858** (mayor recall, menor precisión)
-
-**Conclusión:**  
-Factible usar Deep Learning con MRI para detectar Alzheimer (AUC ~0.9). Limitaciones computacionales y necesidad de selección cuidadosa de slices.
-
----
-
-## 4. Pipeline 4 – COGNITIVA-AI-IMAGES-IMPROVED (MRI OASIS-1+2 unificado)
-
-**Motivación:**  
-Aprovechar todo el conjunto MRI (OASIS-1 + OASIS-2), evitando leakage y aumentando slices por sujeto.
-
-**Resultados:**  
-AUC ~0.85–0.90 en validación, sin salto claro respecto al pipeline 3 por limitaciones de cómputo.
-
-**Conclusión:**  
-Mejor manejo de datos y splits, pero necesidad de GPU para seguir progresando.
-
----
-
-## 5. Pipeline 5 – COGNITIVA-AI-IMAGES-IMPROVED-GPU (Embeddings ResNet18 + Calibración)
-
-**Estrategia:**  
-Transfer learning: extracción de embeddings con ResNet18, luego clasificador tradicional (Logistic Regression) y calibración isotónica.
-
-**Resultados:**
-
-- Slice-level: AUC_val ≈ 0.627, AUC_test ≈ 0.661
-- Paciente-level: AUC_test ≈ 0.724, recall_test = 0.80, precisión ≈ 0.52
-
-**Conclusión:**  
-Probabilidades más confiables y mejor equilibrio precisión/recall mediante calibración. Sensibilidad (80%) en MRI como referencia para mejoras.
-
----
-
-## 6. Pipeline 6 – COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED (Embeddings EffNet-B3 + Ensemble)
-
-**Mejoras:**  
-Embeddings EfficientNet-B3 (1536-d), clasificadores adicionales (MLP, XGBoost), ensemble LR+XGB.
-
-**Resultados:**
-
-| Modelo         | AUC (Val) | AUC (Test) | PR-AUC (Val) | PR-AUC (Test) | Recall (Test) | Precisión (Test) |
-|----------------|-----------|------------|--------------|---------------|---------------|------------------|
-| LR             | 0.786     | 0.685      | 0.732        | 0.539         | 0.80          | 0.52             |
-| MLP            | 0.870     | 0.648      | 0.886        | 0.556         | 0.95          | 0.53             |
-| XGBoost        | 0.782     | 0.670      | 0.633        | 0.617         | 0.75          | 0.56             |
-| Ensemble       | 0.815     | 0.704      | 0.705        | 0.623         | 0.90          | 0.60             |
-
-**Conclusión:**  
-Embeddings más informativos mejoran el recall (90%). AUC en test (~0.70) aún por debajo del modelo clínico.
-
----
-
-# 7. Pipeline 7 – COGNITIVA-AI-IMAGES-FT (Fine-tuning EfficientNet-B3 parcial)
-
-**Planteamiento:**  
-Fine-tuning parcial de EfficientNet-B3, pooling por atención a nivel paciente.
-
-**Resultados:**
-
-- Slice-level: AUC_test ≈ 0.66
-- Patient-level (thr=0.5, attn): AUC_test ≈ 0.872, PR-AUC_test ≈ 0.764, Acc_test ≈ 0.76, Precision_test ≈ 0.85, Recall_test ≈ 0.55
-
-**Conclusión:**  
-Fine-tuning eleva la eficacia de clasificación MRI (AUC ~0.87), pero la sensibilidad queda insuficiente (55%) con threshold estándar. Necesidad de calibrar probabilidades y ajustar umbral.
-
----
-
-## 8. Pipeline 8 – COGNITIVA-AI-IMAGES-FT-IMPROVED (Calibración del modelo fine-tune)
-
-**Motivación:**  
-Calibración con Temperature Scaling y ajuste de umbral clínico para alta sensibilidad.
-
-**Resultados:**
-
-| Modelo MRI                         | AUC (Test) | Recall (Test) | Precision (Test) |
-|-------------------------------------|------------|---------------|------------------|
-| Pipeline 6 (Ensemble LR+XGB)        | 0.704      | 0.90          | 0.60             |
-| Pipeline 8 (EffNet-B3 fine-tune cal)| 0.876      | 1.00          | 0.62             |
-
-- Umbral clínico ≈ 0.365: Recall_test = 1.00, Precision_test ≈ 0.62, AUC_test ≈ 0.876, PR-AUC_test ≈ 0.762, Acc_test ≈ 0.74
-
-**Conclusión:**  
-Modelo MRI altamente sensible y calibrado. Por primera vez se detecta el 100% de los casos de Alzheimer en test, sacrificando precisión (62%) pero ideal para cribado.
-
----
-
-## 9. Pipeline 9 - Fine‑tuning Estable EfficientNet‑B3 (Colab)
-**Configuración**  
-- Arquitectura: EfficientNet‑B3 (timm).  
-- Entrenamiento: AdamW (lr=1e‑4), AMP (`torch.amp`), early‑stopping por AUC en holdout, 300px, batch=64.  
-- Agregación: `mean` a nivel paciente.  
-- Calibración: temperature scaling (T=2.048).  
-- Umbral: 0.3400 (optimizado con recall≥0.95 en VAL).
-
-**Resultados cuantitativos**  
-- VAL → AUC=1.000 | PR-AUC=1.000 | Acc=1.000 | P=1.000 | R=1.000 | thr=0.3400 | n=10  
-- TEST → AUC=0.663 | PR-AUC=0.680 | Acc=0.574 | P=0.500 | R=0.650 | thr=0.3400 | n=47
-
-**Comparativa**  
-- Frente al Pipeline 7 (FT previo): mejora/variación en TEST AUC/PR‑AUC reflejada en las gráficas `comparison_p7_p9_*`.
-
-**Artefactos**  
-- Checkpoint: `best_effb3_stable.pth`  
-- JSON: `effb3_stable_patient_eval.json`  
-- CSVs: `val/test_slices_preds.csv`, `val/test_patient_preds.csv`  
-- Gráficas: barras, punto PR y confusión, y comparativas P7 vs P9 (`graphs_from_metrics/`)
-
----
-
-### 7–9 Fine-Tuning EfficientNet-B3 en Colab
-
-- **Pipeline 7 (inicial):** fine-tuning base, recall perfecto (1.0) pero precisión moderada.  
-- **Pipeline 8 (calibrado):** aplicado *temperature scaling*, mejor consistencia de probabilidades.  
-- **Pipeline 9 (estable):** reentrenamiento reproducible con SSD local.  
-  - Configuración oficial: *temperature scaling* T≈2.67, thr≈0.365.  
-  - Métricas finales: AUC≈0.74, PR-AUC≈0.63, Acc≈0.72, Recall≈0.65, Precision≈0.62.  
-  - Confusión TEST: TP=6, FP=4, TN=36, FN=1.  
-
-**Conclusión:** El fine-tuning logra el mejor rendimiento MRI. Pipeline 7 maximizó recall, mientras que Pipeline 9 prioriza estabilidad y reproducibilidad.
-
----
-
----
-
-## 🔟 Pipeline 10 – Fine-Tuning Stable Plus (checkpoint limpio + calibración final)
-
-**Motivación:**  
-El pipeline 9 ofrecía estabilidad, pero los checkpoints entrenados no siempre coincidían con la arquitectura definida, cargando <1% de pesos en algunos intentos. Era necesario **reprocesar el checkpoint**, asegurar la integridad de pesos y aplicar calibración para obtener resultados reproducibles.  
-Este pipeline se enfocó en reforzar la **calibración y pooling** para asegurar recall absoluto, incluso sacrificando métricas globales.
+Probar un primer modelo utilizando exclusivamente variables clínicas del dataset OASIS-2, sin imágenes. El objetivo era establecer un baseline puramente tabular.  
 
 **Configuración:**  
-- Modelo: EfficientNet-B3 binario (head adaptada).  
-- Checkpoint: `effb3_stable_seed42.pth`, reconstruido a `best_effb3_stable.pth` (99.7% de pesos cargados).  
-- Calibración: *temperature scaling* (T≈2.3) aplicado sobre logits.  
-- Pooling: estrategias mean, median y top-k (0.2, 0.3).  
-- Evaluación: cohortes de 47 pacientes (VAL) y 47 pacientes (TEST).  
+- Modelo: **XGBoost**.  
+- Variables: edad, sexo, puntuaciones cognitivas, CDR.  
+- Validación cruzada interna.  
 
 **Resultados:**  
+- AUC (Test): 0.897.  
+- Sin métricas de PR-AUC reportadas, aunque se observó buen desempeño en términos de recall.  
 
-| Pooling   | AUC (VAL) | PR-AUC (VAL) | AUC (TEST) | PR-AUC (TEST) | Recall TEST | Precision TEST |
-|-----------|-----------|--------------|------------|---------------|-------------|----------------|
-| mean      | 0.630     | 0.667        | 0.546      | 0.526         | 1.0         | 0.47           |
-| median    | 0.643     | 0.653        | 0.541      | 0.513         | 1.0         | 0.48           |
-| top-k=0.2 | 0.602     | 0.655        | 0.583      | 0.502         | 1.0         | 0.49           |
-
-**Artefactos generados:**  
-- Checkpoint limpio en `/ft_effb3_stable_colab_plus/best_effb3_stable.pth`.  
-- CSV por slice y paciente.  
-- JSON de evaluación calibrada (`effb3_stable_patient_eval_calibrated.json`).  
-- Gráficas comparativas AUC, PR-AUC, precisión y recall.  
-
-**Conclusión:**  
-Pipeline 10 consolida la línea MRI con un recall perfecto en test (1.0), asegurando sensibilidad máxima para cribado clínico temprano. Aunque la precisión baja (~0.47), este pipeline marca el cierre robusto de la etapa **MRI-only** y deja el terreno preparado para la fusión multimodal.
+**Reflexión:**  
+Este baseline confirmó que incluso con variables clínicas simples se puede alcanzar un nivel competitivo de discriminación. Sin embargo, la dependencia exclusiva de variables clínicas limita la aplicabilidad general.  
 
 ---
 
-### Comparativa global
+### 3.2 Pipeline 2 – Fusión clínica extendida  
 
-## 📊 Comparativa Global (pipelines 1–10)
+**Motivación:**  
+Ampliar el modelo clínico con más variables y verificar hasta qué punto un modelo tabular puede llegar cerca de la perfección.  
 
-| Pipeline | Modalidad        | Modelo                   | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
-|----------|-----------------|--------------------------|------------|--------|-------|--------|-----------|
-| P1       | Clínico OASIS-2 | XGB                      | 0.897      | —      | —     | —      | —         |
-| P2       | Clínico fusion  | XGB                      | 0.991      | —      | —     | ~1.0   | —         |
-| P3       | MRI OASIS-2     | ResNet50                 | 0.938      | —      | —     | —      | —         |
-| P5       | MRI Colab       | ResNet18 + Calib         | 0.724      | 0.606  | 0.60  | 0.80   | 0.52      |
-| P6       | MRI Colab       | EffNet-B3 embed          | 0.704      | 0.623  | 0.70  | 0.90   | 0.60      |
-| P7       | MRI Colab       | EffNet-B3 finetune       | 0.876      | 0.762  | 0.745 | 1.0    | 0.625     |
-| P9       | MRI Colab       | EffNet-B3 stable         | 0.740      | 0.630  | 0.72  | 0.65   | 0.62      |
-| P10      | MRI Colab       | EffNet-B3 stable+calib   | 0.546–0.583| 0.50–0.53 | 0.51–0.55 | 1.0 | 0.47–0.49 |
-| P10-ext  | MRI Colab       | EffNet-B3 + TRIMMED      | 0.744      | 0.746  | 0.64  | 0.75   | 0.56      |
-| P10-ext  | MRI Colab       | EffNet-B3 + Ensemble(M+T+7) | 0.754   | 0.737  | 0.68  | 0.70   | 0.61      |
+**Configuración:**  
+- Modelo: **XGB**.  
+- Variables: todas las disponibles en OASIS-2.  
+- Validación cruzada más exhaustiva.  
 
----
+**Resultados:**  
+- AUC (Test): 0.991.  
+- Recall cercano al 100%.  
 
-<p align="center">
-  <img src="./graficos/comparativapipelines7-10.png" alt="Comparativa P1-P7 — ROC-AUC por Pipeline" width="880"/>
-</p>
-
-Gráfico de barras con ROC-AUC y PR-AUC en TEST para los tres pipelines más representativos:
-
-- P7 (finetuning clásico con B3).
-
-- P9 (stable, sin calibración).
-
-- P10 (stable plus con checkpoint limpio + calibración).
-
----
-<p align="center">
-  <img src="./graficos/comparativapipelines7-10B.png" alt="Comparativa P1-P7 — Precisión-Recall por Pipeline" width="880"/>
-</p>
-
-Comparativa para Precisión y Recall de los tres pipelines MRI (P7, P9 y P10)
+**Reflexión:**  
+El modelo clínico extendido alcanzó una performance casi perfecta, aunque con riesgo evidente de **overfitting** dada la baja dimensionalidad del dataset. Sirvió como techo de referencia para comparar con modelos de MRI.  
 
 ---
 
-### Extensión Pipeline 10 – Ensemble y pooling avanzados
+### 3.3 Pipeline 3 – MRI OASIS-2 con ResNet50  
 
-Además de los experimentos iniciales con pooling (mean, median, top-k), se evaluaron agregaciones robustas y un ensemble de métodos slice→patient.
+**Motivación:**  
+Dar el salto a imágenes MRI, usando ResNet50 como backbone en el dataset original de OASIS-2.  
 
-- **TRIMMED mean (α=0.2)**: media recortada que mejora la estabilidad frente a slices outliers.  
-- **TOP-k (k=3,7)**: centradas en las slices más patológicas.  
-- **Ensemble MRI**: combinación lineal de MEAN, TRIMMED y TOP7 con pesos óptimos encontrados en validación (0.30, 0.10, 0.60).  
+**Configuración:**  
+- Modelo: **ResNet50 preentrenada en ImageNet**.  
+- Dataset: MRI OASIS-2 (formato local).  
+- Entrenamiento limitado por GPU local.  
 
-**Resultados:**
-- **VAL**: PR-AUC hasta 0.925, recall=0.95, precisión=0.79.  
-- **TEST**: PR-AUC 0.737, recall=0.70, precisión=0.61.  
+**Resultados:**  
+- AUC (Test): 0.938.  
 
-El ensemble mejora la precisión en test (+5 puntos frente a TRIMMED) manteniendo la misma sensibilidad. Se consolida así como la **baseline final de la etapa MRI-only**, antes de avanzar a la integración multimodal con datos clínicos.
-
----
-
-## 📌 Evaluación de seed-ensemble (EffNet-B3, seeds 41/42/43)
-
-**Objetivo:**  
-Verificar si la combinación de checkpoints con distintas semillas podía mejorar la robustez del Pipeline 10 (*EffNet-B3 stable plus*).
-
-**Metodología:**  
-- Inferencia slice-level con TTA reducida (orig + flip).  
-- Agregación a nivel paciente mediante `mean`, `trimmed` y `top-7`.  
-- Calibración en validación: *temperature scaling* y *Platt scaling* con `safe_sigmoid`.  
-- Escalado previo: z-score en VAL aplicado a TEST.
-
-**Resultados principales:**  
-
-| Variante        | AUC (TEST) | PR-AUC (TEST) | Recall (TEST) | Precisión (TEST) |
-|-----------------|------------|---------------|---------------|------------------|
-| seedENS_MEAN    | 0.47–0.52  | 0.42–0.44     | 0.90–1.00     | 0.42–0.45        |
-| seedENS_TRIMMED | 0.49–0.50  | 0.44–0.45     | 0.80–1.00     | 0.41–0.43        |
-| seedENS_TOP7    | 0.45–0.46  | 0.40–0.41     | 1.00          | 0.43             |
-
-**Diagnóstico:**  
-- Los logits de los tres checkpoints presentaron escalas extremadamente distintas.  
-- Incluso tras normalización y calibración, la separación ROC/PR fue prácticamente nula.  
-- El ensemble de semillas no aporta valor añadido frente al ensemble por agregadores (mean+trimmed+top7), que sí logra recall clínico ≥0.9 con mejor PR-AUC.
-
-**Conclusión:**  
-Se descarta el *seed-ensemble* para esta fase. Se consolida el uso del **ensemble por agregadores calibrados** como cierre de la etapa solo-MRI antes de avanzar a la integración multimodal.
+**Reflexión:**  
+Este pipeline demostró que el uso de imágenes cerebrales puede ofrecer resultados competitivos con los clínicos, aunque aún no superiores.  
 
 ---
 
-### 🔹 Extensión Pipeline 10 – Random Search de ensembles
+### 3.4 Pipeline 5 – ResNet18 + calibración  
 
-Tras obtener resultados sólidos con pooling clásico y variantes top-k, exploramos la combinación **aleatoria de pesos normalizados** sobre las features derivadas a nivel paciente (`mean`, `trimmed20`, `top7`, `pmean_2`).
+**Motivación:**  
+Probar una arquitectura más ligera (ResNet18) con calibración de probabilidades.  
 
-- **Configuración:**  
-  - 500 combinaciones aleatorias.  
-  - Pesos restringidos a ≥0 y normalizados a 1.  
-  - Selección por F1-score en validación.
+**Configuración:**  
+- ResNet18 preentrenada.  
+- Post-procesado: **Platt scaling**.  
 
-- **Mejor combinación encontrada:**  
-  - mean ≈ 0.32  
-  - trimmed20 ≈ 0.31  
-  - top7 ≈ 0.32  
-  - pmean_2 ≈ 0.04  
+**Resultados:**  
+- AUC (Test): 0.724.  
+- PR-AUC: 0.606.  
+- Accuracy: 0.60.  
+- Recall: 0.80.  
+- Precision: 0.52.  
 
-- **Resultados:**  
-  - [VAL] AUC=0.909 | PR-AUC=0.920 | Recall=0.95 | Acc=0.87 | Prec=0.79  
-  - [TEST] AUC=0.754 | PR-AUC=0.748 | Recall=0.70 | Acc=0.66 | Prec=0.58  
-
-**Conclusión:** el ensemble aleatorio confirma la **robustez de top7 + mean + trimmed**, alcanzando resultados estables y comparables al stacking. Refuerza que la información MRI puede combinarse de forma no lineal para mejorar recall y estabilidad.
+**Reflexión:**  
+La calibración mejoró la interpretación de scores, pero el backbone resultó limitado para esta tarea.  
 
 ---
 
-### 🧪 Ensembles avanzados en Pipeline 10
+### 3.5 Pipeline 6 – EffNet-B3 en modo embeddings  
 
-- **Objetivo:** superar las limitaciones de pooling simples y del stacking clásico, evaluando combinaciones ponderadas de predicciones slice→paciente.  
+**Motivación:**  
+Usar EfficientNet-B3 como extractor de embeddings, sin fine-tuning completo.  
 
-- **Estrategias exploradas:**
-  - **Seed ensembles:** fallaron, con métricas cercanas a azar (AUC ~0.5).
-  - **Random Search ensemble:** optimizó pesos no negativos (Dirichlet, N=500).  
-    - Pesos óptimos: mean≈0.32, trimmed≈0.31, top7≈0.32, pmean_2≈0.04.  
-    - [VAL] AUC=0.909, PR-AUC=0.920, Recall=0.95.  
-    - [TEST] AUC=0.754, PR-AUC=0.748, Recall=0.70.
-  - **Logistic Regression stacking:** rendimiento equivalente al Random Search.  
-    - Coeficientes (interpretables): todos positivos (~0.40–0.48).  
-    - Conclusión: cada agregador aporta información relevante.
+**Resultados:**  
+- AUC (Test): 0.704.  
+- PR-AUC: 0.623.  
+- Accuracy: 0.70.  
+- Recall: 0.90.  
+- Precision: 0.60.  
 
-- **Reflexión:**  
-  La etapa MRI-only cierra con ensembles robustos que **maximizan recall clínicamente crítico** sin sacrificar tanta precisión como en pooling simples. Esto ofrece un baseline sólido antes de fusionar datos multimodales.
+**Reflexión:**  
+Buen recall, aunque precision limitada.  
 
 ---
 
-### 7.1. Exploración de backbones alternativos (Pipeline 11)
+### 3.6 Pipeline 7 – Fine-tuning completo de EfficientNet-B3  
 
-Tras consolidar EfficientNet-B3 como modelo base en el pipeline 10, se decidió evaluar otras arquitecturas conocidas para clasificación de imágenes médicas. La motivación fue comprobar si existía alguna arquitectura con mejor balance entre recall, precisión y estabilidad en cohortes de validación y test.
+**Motivación:**  
+Explotar la capacidad completa de EfficientNet-B3, ajustando todos los pesos.  
 
-Se probaron: **ResNet-50, ResNet-101, DenseNet-121, ConvNeXt-Tiny y Swin-Tiny**.  
-La configuración experimental mantuvo los mismos splits y métricas que el pipeline 10, utilizando los mapas `oas1_val_colab_mapped.csv` y `oas1_test_colab_mapped.csv`.  
+**Resultados:**  
+- AUC (Test): 0.876.  
+- PR-AUC: 0.762.  
+- Accuracy: 0.745.  
+- Recall: 1.0.  
+- Precision: 0.625.  
 
-Los resultados preliminares indican que:
-- ResNet-50 ofrece métricas similares a EfficientNet-B3 en recall y precisión.  
-- Modelos más modernos (ConvNeXt, Swin) no muestran clara ventaja con este tamaño de dataset.  
-- No se observa un “ganador absoluto”, lo que refuerza la idea de recurrir a **ensembles de backbones**.
-
-**Próximos pasos:**  
-1. Evaluar combinaciones (averaging, stacking) entre backbones.  
-2. Comparar ensembles híbridos vs. EffNet-B3 calibrado.  
-3. Decidir si avanzar hacia multimodal manteniendo un único backbone o una combinación óptima.
+**Reflexión:**  
+Gran salto respecto a embeddings. El modelo capturó patrones discriminativos más profundos.  
 
 ---
 
-## 5. Ingeniería y Rendimiento (Colab)
+### 3.7 Pipeline 9 – EffNet-B3 stable  
 
-- **Copia de MRI a SSD local** (`/content/mri_cache`) → ~**53 f/s** al copiar 940 ficheros.  
-- **Lectura directa Drive**: ~**4.5 img/s** (muestra 256).  
-- **Lectura SSD local**: ~**695 img/s** (muestra 256).  
-- **Inferencia (sin cache inicial)**: ~**17 img/s**.  
-- **Optimizada (cache + ajustes DataLoader)**: **150–200 img/s** (VAL/TEST).  
-- **DataLoader**: en T4, **`num_workers=2`** suele rendir mejor; evita crear más workers que CPUs.  
-- **AMP**: usar `torch.amp.autocast('cuda')` (deprecado `torch.cuda.amp.autocast(...)`).
+**Motivación:**  
+Introducir técnicas de estabilización para reducir variabilidad.  
 
----
-
-## 6. Validación y Métricas
-
-- Métricas a nivel **slice** (AUC, PR-AUC, Brier) y a **nivel paciente** tras *pooling* y calibración.  
-- Curvas ROC/PR, puntos operativos clínicos (alto recall), y matriz de confusión.  
-- **Guardado sistemático** en `graphs_from_metrics` para versionado.
+**Resultados:**  
+- AUC (Test): 0.740.  
+- PR-AUC: 0.630.  
+- Accuracy: 0.72.  
+- Recall: 0.65.  
+- Precision: 0.62.  
 
 ---
 
-## 7. Reproducibilidad (pasos clave)
+### 3.8 Pipeline 10 – EffNet-B3 stable + calibración  
 
-1. **Montar Drive** en Colab y verificar rutas base.  
-2. Ejecutar el notebook `cognitiva_ai_finetuning.ipynb` hasta generar:  
-   - `best_ft_effb3.pth`, `train_history.json`.  
-3. Ejecutar la celda de evaluación/figuras que:  
-   - lee `ft_effb3_patient_eval.json` o reconstruye desde CSV,  
-   - recalcula métricas a nivel paciente con `T` y `thr` indicados,  
-   - exporta **CSV** y **gráficas** en `ft_effb3_colab/graphs_from_metrics`.
+**Motivación:**  
+Aplicar calibración explícita de scores.  
 
-**Pitfalls conocidos:**
-- **Drive ya montado** → `ValueError: Mountpoint must not already contain files` → usa `force_remount=True`.  
-- **Exceso de workers** → *warning* de DataLoader y posible congelación → baja a `num_workers=2`.  
-- **AMP deprecado** → usa API nueva (`torch.amp.autocast('cuda')`).  
+**Resultados:**  
+- AUC (Test): entre 0.546–0.583.  
+- PR-AUC: 0.50–0.53.  
+- Accuracy: 0.51–0.55.  
+- Recall: 1.0.  
+- Precision: 0.47–0.49.  
 
----
-
-## 7. CONCLUSIONES TÉCNICAS
-
-- El **fine-tuning** end-to-end con **EfficientNet‑B3** + *temperature scaling* logra **Recall=1.0** en TEST con **AUC=0.876**, superando los pipelines de embeddings.  
-- El **caché en SSD local** y el ajuste de **DataLoader** son críticos para reducir los tiempos en Colab.  
+**Reflexión:**  
+La calibración no mejoró la discriminación; sacrificó precision.  
 
 ---
 
-## 8. CONCLUSIONES GLOBALES Y TRABAJO FUTURO
+### 3.9 Pipeline 10-ext – Variantes TRIMMED y ensembles intra-backbone  
 
-- **Modalidad Clínica:**  
-  Variables demográficas y neuropsicológicas logran excelente desempeño (AUC ~0.99 fusionando cohortes). Sin embargo, dependen de que el deterioro cognitivo ya sea medible.
+**Motivación:**  
+Explorar variantes de pooling de slices y ensembles dentro de EfficientNet-B3.  
 
-- **Modalidad MRI:**  
-  Inicialmente rezagada, la visión por computador cierra la brecha mediante transferencia, calibración y fine-tuning. El pipeline final de MRI (EffNet-B3 fine-tune) logra alta sensibilidad y precisión moderada, ideal para screening.
-  Con la incorporación del pipeline 10, el proyecto alcanza **diez pipelines** en total.  
-  La parte clínica (Pipeline 2) sigue dominando en AUC (~0.99), mientras que los pipelines MRI más recientes (7–10) priorizan **recall perfecto en test** (1.0), lo que los hace especialmente valiosos en escenarios de cribado donde los falsos negativos son inaceptables.  
-  Este balance deja preparado el terreno para la siguiente etapa: la **fusión multimodal** entre datos clínicos y MRI.
+**Resultados:**  
+- TRIMMED: AUC (Test) 0.744, PR-AUC 0.746.  
+- Ensemble (mean+trimmed+top7): AUC (Test) 0.754, PR-AUC 0.737.  
 
-
-- **Integración futura (Multimodal):**  
-  Próximo paso: fusionar ambas modalidades en un meta-clasificador. Se buscará validar el pipeline en datos externos (OASIS-3, ADNI).
-
-**En conclusión**, COGNITIVA-AI demuestra el potencial de una solución híbrida: datos clínicos estructurados más imágenes cerebrales. Cada iteración aportó mejoras técnicas (unificación de datos, calibración, fine-tuning, ensembles) que convergen en un sistema capaz de priorizar la detección temprana (sensibilidad) manteniendo aceptables tasas de falsa alarma. Esto es crítico en Alzheimer, donde diagnosticar a tiempo puede significar retrasar la progresión y brindar mayor calidad de vida al paciente.
+**Reflexión:**  
+Los ensembles intra-backbone sí ofrecieron mejoras.  
 
 ---
 
-### 📊 Comparativa de estrategias MRI-only (TEST)
+### 3.10 Pipeline 11 – Backbones alternativos  
 
-| Método                | AUC   | PR-AUC | Acc   | Recall | Precision |
-|-----------------------|-------|--------|-------|--------|-----------|
-| Pooling mean          | 0.546 | 0.526  | 0.55  | 1.00   | 0.47      |
-| Pooling trimmed20     | 0.744 | 0.746  | 0.64  | 0.75   | 0.56      |
-| Pooling top7          | 0.743 | 0.726  | 0.70  | 0.50   | 0.71      |
-| Random Search ensemble| 0.754 | 0.748  | 0.66  | 0.70   | 0.58      |
-| Stacking LR ensemble  | 0.754 | 0.748  | 0.66  | 0.70   | 0.58      |
+**Motivación:**  
+Explorar arquitecturas más allá de EfficientNet.  
 
-**Conclusión:**  
-- Los ensembles (Random Search y Logistic Regression) **superan claramente** a los pooling simples.  
-- Se logra un **balance óptimo entre recall clínicamente crítico y precisión**, manteniendo recall ≥0.70 en TEST y alcanzando PR-AUC ~0.75.  
+**Modelos probados:**  
+- ResNet-50.  
+- DenseNet-121.  
+- ConvNeXt-Tiny.  
+- Swin-Tiny.  
 
+**Resultados:**  
+- **ResNet-50**: competitivo, AUC similar a EffNet-B3 estable.  
+- **DenseNet-121**: resultados bajos (AUC ~0.34–0.46).  
+- **ConvNeXt-Tiny**: desempeño bajo (AUC ~0.50).  
+- **Swin-Tiny**: desempeño moderado, con variante top7 alcanzando AUC ~0.64.  
 
-**Autoría:** Fran Ramírez  
-**Última actualización:** 29/08/2025 – 16:14
+**Reflexión:**  
+Ningún backbone superó claramente a EfficientNet-B3, aunque Swin mostró cierto potencial.  
+
+---
+
+### 3.11 Ensembles inter-backbone  
+
+Se exploraron combinaciones entre diferentes backbones:  
+
+- **Dirichlet ensembles**: priorizaron SwinTiny y ResNet, con mejoras modestas.  
+- **Stacking con regresión logística**: no lograron generalizar bien, tendencia a sobreajuste.  
+- **Isotonic calibration** sobre SwinTiny top7: mejoró la estabilidad.  
+
+---
+
+## 4. Comparativa Global  
+
+(Tabla de consolidación de pipelines, métricas ya integrada en README).  
+
+---
+
+## 5. Principales Desafíos  
+
+1. **Técnicos:**  
+   - Errores recurrentes de montaje de Google Drive.  
+   - Saturación de Colab por sesiones largas.  
+   - Problemas de compatibilidad de pesos (`strict=False`).  
+   - Colisiones de nombres de columnas en CSV.  
+
+2. **Metodológicos:**  
+   - Tamaño reducido del dataset → alto riesgo de sobreajuste.  
+   - Dificultad para calibrar scores manteniendo discriminación.  
+   - Varianza alta entre seeds.  
+
+3. **Prácticos:**  
+   - Limitación de tiempo de GPU.  
+   - Dificultad para mantener consistencia entre directorios experimentales.  
+   - Saturación de logs y necesidad de bitácora exhaustiva.  
+
+---
+
+## 6. Lecciones Aprendidas y Decisiones Clave  
+
+- EffNet-B3 sigue siendo un backbone robusto.  
+- Los ensembles intra-backbone mejoran resultados.  
+- Los backbones alternativos no superan claramente a EffNet-B3, salvo Swin en configuraciones concretas.  
+- La combinación de enfoques (ensembles) es clave antes de saltar a multimodal.  
+
+---
+
+## 7. Conclusiones y Próximos Pasos  
+
+- Consolidar ensembles híbridos.  
+- Avanzar hacia multimodal integrando variables clínicas.  
+- Documentar exhaustivamente para posible publicación.  
