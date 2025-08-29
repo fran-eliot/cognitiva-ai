@@ -385,6 +385,25 @@ Tras obtener resultados sólidos con pooling clásico y variantes top-k, explora
 
 ---
 
+### 7.1. Exploración de backbones alternativos (Pipeline 11)
+
+Tras consolidar EfficientNet-B3 como modelo base en el pipeline 10, se decidió evaluar otras arquitecturas conocidas para clasificación de imágenes médicas. La motivación fue comprobar si existía alguna arquitectura con mejor balance entre recall, precisión y estabilidad en cohortes de validación y test.
+
+Se probaron: **ResNet-50, ResNet-101, DenseNet-121, ConvNeXt-Tiny y Swin-Tiny**.  
+La configuración experimental mantuvo los mismos splits y métricas que el pipeline 10, utilizando los mapas `oas1_val_colab_mapped.csv` y `oas1_test_colab_mapped.csv`.  
+
+Los resultados preliminares indican que:
+- ResNet-50 ofrece métricas similares a EfficientNet-B3 en recall y precisión.  
+- Modelos más modernos (ConvNeXt, Swin) no muestran clara ventaja con este tamaño de dataset.  
+- No se observa un “ganador absoluto”, lo que refuerza la idea de recurrir a **ensembles de backbones**.
+
+**Próximos pasos:**  
+1. Evaluar combinaciones (averaging, stacking) entre backbones.  
+2. Comparar ensembles híbridos vs. EffNet-B3 calibrado.  
+3. Decidir si avanzar hacia multimodal manteniendo un único backbone o una combinación óptima.
+
+---
+
 ## 5. Ingeniería y Rendimiento (Colab)
 
 - **Copia de MRI a SSD local** (`/content/mri_cache`) → ~**53 f/s** al copiar 940 ficheros.  
@@ -464,4 +483,4 @@ Tras obtener resultados sólidos con pooling clásico y variantes top-k, explora
 
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 28/08/2025 – 23:54
+**Última actualización:** 29/08/2025 – 16:14

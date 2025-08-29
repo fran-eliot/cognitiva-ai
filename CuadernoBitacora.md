@@ -479,5 +479,22 @@ En esta fase se exploraron variantes adicionales sobre el pipeline 10, sin cambi
 
 ---
 
+## 📅 29/08/2025 – Inicio Pipeline 11: Backbones alternativos
+
+- **Fase:** Se abre la **Fase 11 – Exploración de backbones alternativos**.  
+- **Actividades:**  
+  - Configuración de un nuevo directorio de salida: `/p11_alt_backbones`.  
+  - Corrección de incidencias con Google Drive (error al no reiniciar entorno tras semanas activo). Solución: reinicio completo, que permitió detectar correctamente `oas1_val_colab_mapped.csv` y `oas1_test_colab_mapped.csv`.  
+  - Ejecución de celdas A–D del nuevo notebook `cognitiva_ai_backbones.ipynb`.  
+  - Obtención de métricas preliminares para varios backbones: ResNet, DenseNet, ConvNeXt y Swin.  
+- **Resultados:**  
+  - Se confirma que ResNet-50 es competitivo, aunque ningún modelo supera claramente a EfficientNet-B3.  
+  - Guardados resultados comparativos en `comparison_backbones_eval.csv`.  
+- **Reflexión:**  
+  - La estrategia de probar diferentes arquitecturas es útil para garantizar que EffNet-B3 no es un *local optimum*.  
+  - La evidencia refuerza el interés en aplicar **ensembles de backbones** antes de pasar al multimodal.  
+
+---
+
 **Autoría:** Fran Ramírez  
-**Última actualización:** 28/08/2025 – 23:55
+**Última actualización:** 29/08/2025 – 16:18

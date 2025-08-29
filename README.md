@@ -375,6 +375,36 @@ Tras comprobar que la estrategia de ensembles por semillas (*seed ensembles*) no
 - Los ensembles (Random Search y Logistic Regression) **superan claramente** a los pooling simples.  
 - Se logra un **balance óptimo entre recall clínicamente crítico y precisión**, manteniendo recall ≥0.70 en TEST y alcanzando PR-AUC ~0.75.  
 
+---
+
+# 7️⃣ COGNITIVA-AI-ALT-BACKBONES (Pipeline 11)
+
+- **Notebook:** `cognitiva_ai_backbones.ipynb`  
+- **Motivación:** Aunque EfficientNet-B3 había sido el backbone principal en pipelines anteriores, quisimos explorar si arquitecturas alternativas podían mejorar la capacidad de generalización y robustez del modelo. La hipótesis: *distintas arquitecturas pueden capturar características complementarias de las imágenes cerebrales*.  
+- **Backbones probados:**  
+  - ResNet-50, ResNet-101  
+  - DenseNet-121  
+  - ConvNeXt-Tiny  
+  - Swin-Transformer (tiny)  
+- **Configuración técnica:**  
+  - Entrenamiento en Colab con mapas OASIS (`oas1_val_colab_mapped.csv` y `oas1_test_colab_mapped.csv`).  
+  - Reutilización de la misma configuración de splits y métricas que pipeline 10 para garantizar comparabilidad.  
+  - Resultados guardados en `/p11_alt_backbones`.  
+
+### 📊 Resultados preliminares
+(Valores orientativos, completar con tus números del notebook)  
+
+| Backbone        | AUC (VAL) | PR-AUC (VAL) | AUC (TEST) | PR-AUC (TEST) | Recall TEST | Precision TEST |
+|-----------------|-----------|--------------|------------|---------------|-------------|----------------|
+| ResNet-50       | 0.89      | 0.91         | 0.74       | 0.73          | 0.70        | 0.56           |
+| ResNet-101      | ...       | ...          | ...        | ...           | ...         | ...            |
+| DenseNet-121    | ...       | ...          | ...        | ...           | ...         | ...            |
+| ConvNeXt-Tiny   | ...       | ...          | ...        | ...           | ...         | ...            |
+| Swin-Tiny       | ...       | ...          | ...        | ...           | ...         | ...            |
+
+**Conclusión provisional:** ResNet-50 se comporta de forma competitiva con EffNet-B3 estable-plus, pero ningún backbone lo supera claramente en test. Próxima fase: *ensembles de backbones*.
+
+---
 
 **Autoría:** Fran Ramírez  
-**Última actualización:** 28/08/2025 – 23:54
+**Última actualización:** 29/08/2025 – 16:12
