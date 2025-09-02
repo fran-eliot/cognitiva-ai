@@ -1,3 +1,5 @@
+> *Branch creada para analizar el código y hacer comentarios.*
+
 # 🧠 COGNITIVA-AI – Experimentos de Clasificación Multimodal
 
 Este repositorio documenta **toda la evolución experimental** en el marco del proyecto **Cognitiva-AI**, cuyo objetivo ha sido **explorar modelos de machine learning para diagnóstico de Alzheimer** combinando datos clínicos y de imagen (MRI OASIS-2).  
