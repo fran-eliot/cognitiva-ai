@@ -246,6 +246,37 @@ Se exploraron combinaciones entre diferentes backbones:
 
 ---
 
+## Experimentos en OASIS-2 (p13 y p14)
+
+### Preparación de datos
+- Se procesaron 367 scans de OASIS-2, de los cuales 150 tenían labels clínicos.  
+- **Selección de slices:** 20 cortes axiales equiespaciados en cada volumen,  
+  evitando un 8% en los extremos (edge_crop).  
+- **Normalización:** z-score dentro de máscara cerebral (FSL/OTSU fallback) y  
+  reescalado a [0,255], con opción de CLAHE.  
+- **Criterio de 1 visita por paciente:** se escogió una sola sesión (MRI ID)  
+  por paciente para evitar leakage entre train/val/test.  
+
+### Pipeline p13
+- Entrenamiento base con EfficientNet-B3 en cohortes reducidas (105 train, 22 val, 23 test).  
+- Sirvió como prueba inicial de integración de OASIS-2, pero mostró limitación en tamaño.  
+
+### Pipeline p14
+- Entrenamiento balanceado con EfficientNet-B3 en Colab GPU.  
+- **Problema identificado:** la latencia en la E/S desde Google Drive ralentizaba mucho el entrenamiento.  
+  **Solución:** copiar las 7340 slices a SSD local de Colab antes de entrenar.  
+- Aplicación de **class weights** para balancear clases (neg: 1.05, pos: 0.95).  
+
+### Resultados comparativos
+- **p13:** recall alto en cohortes pequeñas, pero riesgo de sobreajuste.  
+- **p14:** resultados sólidos con AUC≈0.88 en validación y recall=100% en test.  
+
+### Conclusión
+- La combinación de preparación cuidadosa de datos (slices, z-score, 1 sesión/paciente) y el uso de SSD en Colab fue determinante.  
+- P14 se integra en el catálogo de backbones, sirviendo como pieza clave para el ensemble final.
+
+---
+
 ## 4. Comparativa Global  
 
 (Tabla de consolidación de pipelines, métricas ya integrada en README).  
@@ -286,3 +317,5 @@ Se exploraron combinaciones entre diferentes backbones:
 - Consolidar ensembles híbridos.  
 - Avanzar hacia multimodal integrando variables clínicas.  
 - Documentar exhaustivamente para posible publicación.  
+
+Actualizado: 05/09/2025 21:56

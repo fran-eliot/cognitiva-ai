@@ -148,6 +148,19 @@
 
 ---
 
+### 📅 04/09/2025 – Pipeline p13
+- Procesamiento de OASIS-2, 20 slices equiespaciados por scan.  
+- Dataset reducido a 150 pacientes (una visita por paciente).  
+- Entrenamiento base en Colab → resultados preliminares positivos, pero limitados.  
+
+### 📅 05/09/2025 – Pipeline p14
+- Reentrenamiento con imágenes copiadas a SSD local de Colab.  
+- Añadido balanceo de clases con `class weights`.  
+- Validación fuerte (AUC≈0.88), recall en test=100%.  
+- Integrado al catálogo de backbones.
+
+---
+
 # 🧩 Recap por Fases/Pipelines
 
 ## 📌 P1 – Clínico OASIS-2
@@ -195,9 +208,32 @@
 
 ---
 
+## Fase 7 – OASIS-2 (p13 y p14)
+
+**Contexto:**  
+Exploración y explotación del dataset OASIS-2 con EfficientNet-B3.  
+Se implementaron dos pipelines consecutivos:
+
+- **p13:** entrenamiento base con criterio de una sola visita por paciente.  
+- **p14:** entrenamiento balanceado en Colab GPU, copiando imágenes a SSD para mejorar la E/S.
+
+**Detalles técnicos:**
+- 20 slices por volumen, equiespaciados y normalizados (z-score + CLAHE).  
+- Labels obtenidos del Excel clínico, convertidos a binario (Control=0, Dementia/Converted=1).  
+- Split: 105 train, 22 val, 23 test (1 sesión por paciente).  
+- P14 con **class weights** y SSD local.
+
+**Resultados:**
+- p13: recall alto, dataset limitado (150 pacientes).  
+- p14: VAL AUC≈0.88, TEST AUC≈0.71 con recall=100%.  
+- Integración en catálogo de backbones (`oas2_effb3`, `oas2_effb3_p14`).
+
+---
+
 # 🚀 Próximos pasos
 1. Ensemble híbrido: EffNet-B3 (4 features) + Swin-Tiny isotonic.
 2. Regularización en stacking para evitar coef=0.
 3. Multimodal clínico+MRI (P2 + P7/P10-ext).
 4. Ampliación de dataset (ADNI, augmentations).
 
+Actualizado: 05/09/2025 22:01

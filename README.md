@@ -193,6 +193,30 @@ La vía lógica pasa a ser **ensembles de backbones**.
 
 ---
 
+### P13: **COGNITIVA-AI-OASIS2-P13 (EffNet-B3 base en OASIS-2)**  
+   - EfficientNet-B3 entrenado en OASIS-2 con criterio de **una visita por paciente**  
+     (total: 150 pacientes → 105 train, 22 val, 23 test).  
+   - Generación de slices: 20 cortes axiales equiespaciados evitando extremos,  
+     normalizados con z-score y CLAHE opcional.  
+   - Dataset enriquecido con labels clínicos (Control/Dementia/Converted).  
+
+   **Resultados (VAL/TEST)**:  
+   - Recall alto en cohortes pequeñas, AUC estable, pero dataset limitado → riesgo de overfitting.  
+
+### P14: **COGNITIVA-AI-OASIS2-P14 (EffNet-B3 balanceado, Colab SSD)**  
+   - Entrenamiento en Colab GPU con imágenes copiadas a SSD local para evitar  
+     latencias de E/S desde Google Drive.  
+   - Uso de **class weights** para balancear clases.  
+   - Integración en catálogo de backbones (p11).  
+
+   **Resultados (VAL/TEST):**  
+   - [VAL] AUC≈0.88 | Acc≈0.86 | Recall≈0.82  
+   - [TEST] AUC≈0.71 | Acc≈0.70 | Recall=1.0  
+
+➡️ P14 se consolida como **clasificador sensible** (cribado clínico), mientras que P13 sirvió de exploración base para OASIS-2.
+
+---
+
 ## Comparativa global de resultados
 
 | Pipeline | Modalidad        | Modelo                       | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
@@ -266,3 +290,4 @@ La vía lógica pasa a ser **ensembles de backbones**.
    - Estudiar interpretabilidad (Grad-CAM, SHAP).  
 
 ---
+Actualizado: 05/09/2025 21:54
