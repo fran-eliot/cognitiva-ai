@@ -246,34 +246,50 @@ Se exploraron combinaciones entre diferentes backbones:
 
 ---
 
-## Experimentos en OASIS-2 (p13 y p14)
+## Experimentos en OASIS-2 (p13, p14 y p15)
 
 ### Preparación de datos
-- Se procesaron 367 scans de OASIS-2, de los cuales 150 tenían labels clínicos.  
-- **Selección de slices:** 20 cortes axiales equiespaciados en cada volumen,  
-  evitando un 8% en los extremos (edge_crop).  
-- **Normalización:** z-score dentro de máscara cerebral (FSL/OTSU fallback) y  
-  reescalado a [0,255], con opción de CLAHE.  
-- **Criterio de 1 visita por paciente:** se escogió una sola sesión (MRI ID)  
-  por paciente para evitar leakage entre train/val/test.  
+- 367 exploraciones de OASIS-2, de las cuales 150 tenían label clínico.  
+- Generación de 7340 slices (20 por volumen, edge_crop=0.08, z-score + CLAHE).  
+- Máscaras cerebrales FSL u Otsu.  
+- Criterio de **una visita por paciente** para evitar leakage.  
+
+---
 
 ### Pipeline p13
-- Entrenamiento base con EfficientNet-B3 en cohortes reducidas (105 train, 22 val, 23 test).  
-- Sirvió como prueba inicial de integración de OASIS-2, pero mostró limitación en tamaño.  
+- Entrenamiento base con EfficientNet-B3 en cohortes reducidas.  
+- 150 pacientes → 105 train, 22 val, 23 test.  
+- Resultados preliminares con recall alto, pero riesgo de sobreajuste.  
+
+---
 
 ### Pipeline p14
-- Entrenamiento balanceado con EfficientNet-B3 en Colab GPU.  
-- **Problema identificado:** la latencia en la E/S desde Google Drive ralentizaba mucho el entrenamiento.  
-  **Solución:** copiar las 7340 slices a SSD local de Colab antes de entrenar.  
-- Aplicación de **class weights** para balancear clases (neg: 1.05, pos: 0.95).  
+- Reentrenamiento en GPU con **class weights** y datos copiados a **SSD local de Colab** para optimizar E/S.  
+- Métricas robustas en validación (AUC≈0.88) y recall=100% en test.  
+- Integración en catálogo de backbones como `oas2_effb3_p14`.  
 
-### Resultados comparativos
-- **p13:** recall alto en cohortes pequeñas, pero riesgo de sobreajuste.  
-- **p14:** resultados sólidos con AUC≈0.88 en validación y recall=100% en test.  
+---
+
+### Pipeline p15 (Consolidación y ensamble)
+- Objetivo: consolidar resultados de p13/p14 con OASIS-1 (p11).  
+- Se añadieron al catálogo de backbones (`oas2_effb3`, `oas2_effb3_p14`).  
+- Generación de features combinadas (69 pacientes en val, 70 en test).  
+- Manejo de NaN: descarte de columnas con >40% y uso de modelos compatibles con NaN (HistGradientBoosting).  
+
+**Resultados comparativos (VAL/TEST):**
+
+| Pipeline | VAL AUC | VAL Acc | VAL Recall | TEST AUC | TEST Acc | TEST Recall |
+|----------|---------|---------|------------|----------|----------|-------------|
+| p13      | ~0.90   | 0.86    | 0.82       | ~0.77    | 0.78     | 0.83        |
+| p14      | 0.88    | 0.86    | 0.82       | 0.71     | 0.70     | 1.00        |
+| p15      | 0.94    | 0.84    | ~1.0       | 0.71     | 0.63–0.71 | 0.78–1.0   |
+
+---
 
 ### Conclusión
-- La combinación de preparación cuidadosa de datos (slices, z-score, 1 sesión/paciente) y el uso de SSD en Colab fue determinante.  
-- P14 se integra en el catálogo de backbones, sirviendo como pieza clave para el ensemble final.
+- p13: prueba de integración OASIS-2.  
+- p14: optimización con balanceo y SSD local.  
+- p15: consolidación de resultados e integración en ensambles OASIS-1+2, demostrando que la combinación de backbones mejora recall y robustez del sistema.
 
 ---
 
@@ -318,4 +334,4 @@ Se exploraron combinaciones entre diferentes backbones:
 - Avanzar hacia multimodal integrando variables clínicas.  
 - Documentar exhaustivamente para posible publicación.  
 
-Actualizado: 05/09/2025 21:56
+Actualizado: 05/09/2025 12:13

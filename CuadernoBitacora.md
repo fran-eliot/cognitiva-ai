@@ -22,25 +22,28 @@
 
 ---
 
-## Fase 7 – OASIS-2 (p13 y p14)
+## Fase 7 – OASIS-2 (p13, p14 y p15)
 
 **Contexto:**  
 Exploración y explotación del dataset OASIS-2 con EfficientNet-B3.  
-Se implementaron dos pipelines consecutivos:
+Se implementaron tres pipelines consecutivos:
 
 - **p13:** entrenamiento base con criterio de una sola visita por paciente.  
-- **p14:** entrenamiento balanceado en Colab GPU, copiando imágenes a SSD para mejorar la E/S.
+- **p14:** entrenamiento balanceado en Colab GPU, copiando imágenes a SSD para mejorar la E/S.  
+- **p15:** consolidación de resultados de OASIS-2 (p13 y p14) junto a OASIS-1 (p11), integrando todos los backbones en un catálogo común y generando features de ensamble.
 
 **Detalles técnicos:**
 - 20 slices por volumen, equiespaciados y normalizados (z-score + CLAHE).  
 - Labels obtenidos del Excel clínico, convertidos a binario (Control=0, Dementia/Converted=1).  
-- Split: 105 train, 22 val, 23 test (1 sesión por paciente).  
-- P14 con **class weights** y SSD local.
+- Split fijo: 105 train, 22 val, 23 test (1 sesión por paciente).  
+- P14: entrenamiento con **class weights** y datos en **SSD local de Colab**.  
+- P15: consolidación en catálogo, eliminación de features con NaN≥40%, uso de Logistic Regression (con imputación) y HistGradientBoosting (manejo nativo de NaN).
 
 **Resultados:**
-- p13: recall alto, dataset limitado (150 pacientes).  
-- p14: VAL AUC≈0.88, TEST AUC≈0.71 con recall=100%.  
-- Integración en catálogo de backbones (`oas2_effb3`, `oas2_effb3_p14`).
+- **p13:** recall alto, dataset limitado (150 pacientes).  
+- **p14:** VAL AUC≈0.88, TEST AUC≈0.71 con recall=100%.  
+- **p15:** consolidación con ensamble → VAL AUC≈0.94, TEST AUC≈0.71; recall alto sostenido.  
+- Integración completa en el catálogo de backbones (`oas2_effb3`, `oas2_effb3_p14`) y en las features consolidadas con OASIS-1.
 
 ---
 
@@ -340,15 +343,21 @@ Se implementaron dos pipelines consecutivos:
 ---
 
 ### 📅 04/09/2025 – Pipeline p13
-- Procesamiento de OASIS-2, 20 slices equiespaciados por scan.  
-- Dataset reducido a 150 pacientes (una visita por paciente).  
-- Entrenamiento base en Colab → resultados preliminares positivos, pero limitados.  
+- Procesamiento OASIS-2 → 20 slices equiespaciados por scan.  
+- Selección de 1 visita/paciente.  
+- Entrenamiento base en EfficientNet-B3 (105/22/23).  
 
 ### 📅 05/09/2025 – Pipeline p14
-- Reentrenamiento con imágenes copiadas a SSD local de Colab.  
-- Añadido balanceo de clases con `class weights`.  
-- Validación fuerte (AUC≈0.88), recall en test=100%.  
-- Integrado al catálogo de backbones.
+- Copia de 7340 slices a SSD local en Colab.  
+- Entrenamiento balanceado con class weights.  
+- AUC≈0.88 en val, recall=100% en test.  
+
+### 📅 06/09/2025 – Pipeline p15 (Consolidación)
+- Integración de resultados p13 y p14 en el catálogo global de backbones.  
+- Generación de features combinadas con OASIS-1 (p11).  
+- Dificultades: manejo de NaN en features y necesidad de descartar/ imputar columnas.  
+- Modelos finales: Logistic Regression con imputación y HistGradientBoosting (NaN nativo).  
+- Resultado: VAL AUC≈0.94, TEST AUC≈0.71 con recall alto.
 
 ---
 
@@ -474,4 +483,4 @@ def agg_patient(df):
     }).reset_index()
 ```
 
-Actualizado: 05/09/2025 21:59
+Actualizado: 06/09/2025 12:14

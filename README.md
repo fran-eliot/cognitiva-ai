@@ -194,26 +194,40 @@ La vía lógica pasa a ser **ensembles de backbones**.
 ---
 
 ### P13: **COGNITIVA-AI-OASIS2-P13 (EffNet-B3 base en OASIS-2)**  
-   - EfficientNet-B3 entrenado en OASIS-2 con criterio de **una visita por paciente**  
-     (total: 150 pacientes → 105 train, 22 val, 23 test).  
-   - Generación de slices: 20 cortes axiales equiespaciados evitando extremos,  
-     normalizados con z-score y CLAHE opcional.  
-   - Dataset enriquecido con labels clínicos (Control/Dementia/Converted).  
+- Procesamiento de **367 scans OASIS-2** → 150 pacientes con labels clínicos.  
+- **Slices:** 20 cortes axiales equiespaciados, evitando extremos, normalizados (z-score + CLAHE opcional).  
+- **Máscara cerebral:** segmentación FSL o fallback con Otsu.  
+- **Una visita por paciente** → 150 pacientes (105 train, 22 val, 23 test).  
 
-   **Resultados (VAL/TEST)**:  
-   - Recall alto en cohortes pequeñas, AUC estable, pero dataset limitado → riesgo de overfitting.  
+**Resultados:** recall alto en cohortes pequeñas, pero dataset limitado → riesgo de sobreajuste.  
+
+---
 
 ### P14: **COGNITIVA-AI-OASIS2-P14 (EffNet-B3 balanceado, Colab SSD)**  
-   - Entrenamiento en Colab GPU con imágenes copiadas a SSD local para evitar  
-     latencias de E/S desde Google Drive.  
-   - Uso de **class weights** para balancear clases.  
-   - Integración en catálogo de backbones (p11).  
+- Copia de las 7340 slices a **SSD local de Colab** para reducir la latencia de E/S.  
+- Entrenamiento con **class weights** para balancear clases.  
+- Integración en catálogo de backbones (p11).  
 
-   **Resultados (VAL/TEST):**  
-   - [VAL] AUC≈0.88 | Acc≈0.86 | Recall≈0.82  
-   - [TEST] AUC≈0.71 | Acc≈0.70 | Recall=1.0  
+**Resultados:**  
+- [VAL] AUC≈0.88 | Acc≈0.86 | Recall≈0.82  
+- [TEST] AUC≈0.71 | Acc≈0.70 | Recall=1.0  
 
-➡️ P14 se consolida como **clasificador sensible** (cribado clínico), mientras que P13 sirvió de exploración base para OASIS-2.
+---
+
+### P15: **COGNITIVA-AI-OASIS2-P15 (Consolidación y comparación)**  
+- Fase de consolidación: integración de resultados de OASIS-2 (p13 y p14) en el **catálogo global de backbones**.  
+- Generación de features combinadas con OASIS-1 (p11).  
+- Se descartaron features con NaN > 40% y se aplicaron modelos de ensamblado (Logistic Regression, HistGradientBoosting).  
+
+**Resultados comparativos (VAL/TEST):**
+
+| Pipeline | VAL AUC | VAL Acc | VAL Recall | TEST AUC | TEST Acc | TEST Recall |
+|----------|---------|---------|------------|----------|----------|-------------|
+| **p13**  | ~0.90   | 0.86    | 0.82       | ~0.77    | 0.78     | 0.83        |
+| **p14**  | 0.88    | 0.86    | 0.82       | 0.71     | 0.70     | 1.00        |
+| **p15** (ensemble) | 0.94 | 0.84 | ~1.0 | 0.71 | 0.63–0.71 | 0.78–1.0 |
+
+➡️ p15 marca la transición de entrenamientos aislados a **ensambles integrados OASIS-1 + OASIS-2**.
 
 ---
 
@@ -290,4 +304,4 @@ La vía lógica pasa a ser **ensembles de backbones**.
    - Estudiar interpretabilidad (Grad-CAM, SHAP).  
 
 ---
-Actualizado: 05/09/2025 21:54
+Actualizado: 06/09/2025 12:12
