@@ -293,6 +293,42 @@ Se exploraron combinaciones entre diferentes backbones:
 
 ---
 
+## Fase 8 – Ensembles refinados (p15 y p16)
+
+**Contexto:**  
+Tras la exploración con OASIS-2 en los pipelines p13 y p14, se buscó consolidar resultados y refinar el rendimiento a través de ensembles patient-level.
+
+**Pipeline p15 (Consolidación):**
+- Revisión de inventarios y labels clínicos (367 scans totales, 150 con etiqueta).  
+- Confirmación del criterio de **una sesión por paciente** para evitar leakage.  
+- Dataset resultante: 3.000 slices etiquetadas (20 slices por scan).  
+- Dificultades: la latencia de E/S en Google Drive volvió a confirmar la necesidad de copiar los datos a SSD de Colab.
+
+**Pipeline p16 (Refinamiento de ensembles):**
+- Construcción de features patient-level a partir de múltiples backbones (`oas2_effb3`, `oas2_effb3_p14`, SwinTiny, ConvNeXt, etc.).  
+- Manejo de NaNs:  
+  - Eliminación de features con >40% de valores perdidos.  
+  - Imputación + flags en Logistic Regression.  
+  - Soporte nativo de NaN en HistGradientBoosting.  
+- Ensayos con **Logistic Regression, HistGradientBoosting y blending (LR+HGB)**.
+
+**Resultados comparativos:**
+- Validación (VAL):  
+  - AUC≈0.95 con el blend, recall≈1.0 en cohortes OAS1.  
+  - Cohorte OAS2 más reducida → métricas inestables, pero recall=1.0.  
+- Test (TEST):  
+  - AUC≈0.69, recall≈0.78, mejorando a modelos individuales.  
+  - LR e HGB muestran rendimientos complementarios.  
+  - Blend logra mejor equilibrio entre sensibilidad y precisión.
+
+**Conclusión:**  
+La consolidación en p15 y el refinamiento en p16 confirmaron que los ensembles permiten:  
+- Reducir la varianza del rendimiento.  
+- Mejorar recall en test (apropiado para cribado clínico).  
+- Integrar backbones heterogéneos en un modelo más estable.
+
+---
+
 ## 4. Comparativa Global  
 
 (Tabla de consolidación de pipelines, métricas ya integrada en README).  
@@ -334,4 +370,4 @@ Se exploraron combinaciones entre diferentes backbones:
 - Avanzar hacia multimodal integrando variables clínicas.  
 - Documentar exhaustivamente para posible publicación.  
 
-Actualizado: 05/09/2025 12:13
+Actualizado: 05/09/2025 22:53

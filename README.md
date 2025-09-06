@@ -231,6 +231,23 @@ La vía lógica pasa a ser **ensembles de backbones**.
 
 ---
 
+### P15: **COGNITIVA-AI-OASIS2-P15 (Consolidación)**
+- Integración de resultados de **p13 y p14** en un marco común.  
+- Se verificó la cobertura de labels (150 scans con target sobre 367 totales) y la estrategia de **una sesión por paciente**.  
+- Dificultades: latencia de E/S en Google Drive → necesidad de copiar slices a SSD de Colab.  
+- Conclusión: P15 sirvió como **validación de consistencia** antes de refinar ensembles.
+
+### P16: **COGNITIVA-AI-OASIS2-P16 (Refinamiento de Ensembles)**
+- Se construyeron **features patient-level** a partir del catálogo de backbones (`oas2_effb3`, `oas2_effb3_p14`, SwinTiny, ConvNeXt, etc.).  
+- Manejo explícito de **NaNs** (descartar features con >40% de missing, imputación/flags en LR, NaN nativos en HistGB).  
+- Ensayos con **Logistic Regression, HistGradientBoosting y blending**.  
+- Resultados:  
+  - VAL: AUC≈0.95 (blend), recall≈1.0 en OAS1, estable en OAS2.  
+  - TEST: AUC≈0.69, recall≈0.78 (blend), mejor que cada backbone aislado.  
+- Conclusión: ensembles permiten mejorar estabilidad y recall, confirmando el valor de la integración multimodelo.
+
+---
+
 ## Comparativa global de resultados
 
 | Pipeline | Modalidad        | Modelo                       | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
@@ -304,4 +321,4 @@ La vía lógica pasa a ser **ensembles de backbones**.
    - Estudiar interpretabilidad (Grad-CAM, SHAP).  
 
 ---
-Actualizado: 06/09/2025 12:12
+Actualizado: 06/09/2025 22:42

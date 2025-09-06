@@ -47,6 +47,15 @@ Se implementaron tres pipelines consecutivos:
 
 ---
 
+# Fase 8 – OASIS-2 (p15 y p16)
+
+**Contexto general:**  
+Tras los avances logrados con p13 y p14, donde exploramos el dataset OASIS-2 y conseguimos un modelo base sólido con EfficientNet-B3, surgió la necesidad de dar un paso más:  
+1. **Consolidar la preparación de datos (p15)** para asegurar coherencia y cobertura completa del dataset.  
+2. **Refinar la estrategia de ensembles (p16)**, combinando backbones heterogéneos en un esquema patient-level con métricas robustas.
+
+---
+
 # 🗓 Semana “cero”: preparación antes del arranque formal
 
 ## 📅 24/06/2025 — Preparación de entorno y árbol de carpetas
@@ -361,6 +370,39 @@ Se implementaron tres pipelines consecutivos:
 
 ---
 
+### 📅 06/09/2025 – Pipeline p15 (Consolidación de dataset OASIS-2)
+- Se revisaron de nuevo todos los **367 scans** procesados de OASIS-2.  
+- Confirmamos que solo **150 scans** contaban con etiquetas clínicas válidas (Control/Dementia/Converted).  
+- Se reafirmó el criterio de **una única sesión por paciente** para evitar *data leakage* entre splits.  
+- Se generaron **20 slices axiales equiespaciados** por volumen, eliminando los extremos (8%) y aplicando **normalización z-score + CLAHE opcional**.  
+- Resultado: **150 pacientes × 20 slices = 3.000 imágenes etiquetadas**.  
+- Dificultad importante: el acceso a imágenes desde Google Drive seguía penalizando el entrenamiento por la latencia de E/S.  
+  - **Solución:** replicar todo el dataset en el **SSD local de Colab** antes de cada entrenamiento, lo que redujo drásticamente los tiempos.  
+- Con esta consolidación, el dataset quedó consistente, balanceado y preparado para ser integrado en ensembles.
+
+---
+
+### 📅 06/09/2025 – Pipeline p16 (Refinamiento de ensembles)
+- Se construyeron features **patient-level** a partir de múltiples backbones:  
+  - `oas2_effb3`, `oas2_effb3_p14`, `SwinTiny`, `ConvNeXt_tiny`, `DenseNet121`, entre otros.  
+- Durante la integración, se detectó un alto número de columnas con valores faltantes (**NaNs**).  
+  - Se aplicó un criterio estricto: **descartar columnas con >40% NaN**.  
+  - Para las restantes:  
+    - **Logistic Regression (LR):** imputación + columnas-flag de missingness.  
+    - **HistGradientBoosting (HGB):** manejo nativo de NaNs, sin necesidad de imputar.  
+- Se exploró un esquema de **blending** LR+HGB, optimizado en validación con α=0.02 (casi todo el peso en HGB).  
+- **Resultados clave:**  
+  - **Validación:**  
+    - AUC≈0.95 global, con recall=100% en cohortes OAS1.  
+    - En OAS2, las métricas fueron más bajas (AUC≈0.54) debido al reducido tamaño de muestra, pero se mantuvo recall=100%.  
+  - **Test:**  
+    - AUC≈0.69 global.  
+    - Recall≈78%, lo que representa una mejora respecto a modelos individuales.  
+    - El blending aportó mayor estabilidad en comparación con usar un solo clasificador.  
+- Conclusión: los ensembles **aumentan la sensibilidad del sistema y reducen el riesgo de overfitting**, consolidándose como la mejor estrategia para explotar múltiples backbones en paralelo.
+
+---
+
 ...
 ### 🧪 Extractos de logs útiles
 
@@ -483,4 +525,4 @@ def agg_patient(df):
     }).reset_index()
 ```
 
-Actualizado: 06/09/2025 12:14
+Actualizado: 06/09/2025 23:12
