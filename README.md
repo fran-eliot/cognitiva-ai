@@ -248,6 +248,122 @@ La vía lógica pasa a ser **ensembles de backbones**.
 
 ---
 
+### P17: **COGNITIVA-AI-Ensemble Calibration (Stacking + Platt Scaling)**  
+- Refinamiento de ensembles con **stacking (LR sobre outputs base)** y calibración de probabilidades mediante **Platt scaling**.  
+- Umbral optimizado en validación para F1 (0.35), aplicado después en test.  
+- Métricas adicionales: **Brier Score** para evaluar calibración.  
+
+**Resultados (VAL/TEST):**  
+- [VAL] AUC≈0.78 | Acc≈0.74 | Recall≈0.94 | F1≈0.76 | Brier=0.176  
+- [TEST] AUC≈0.70 | Acc≈0.63 | Recall≈0.78 | F1≈0.66 | Brier=0.227  
+
+➡️ El ensemble calibrado mantiene un **recall alto y probabilidades mejor calibradas**, aunque OAS2 sigue limitado por tamaño muestral.
+
+---
+
+### Comparativa p16 vs p17
+
+| Pipeline | Método principal                | VAL AUC | VAL Acc | VAL Recall | VAL F1 | TEST AUC | TEST Acc | TEST Recall | TEST F1 | Brier (Test) |
+|----------|---------------------------------|---------|---------|------------|--------|----------|----------|-------------|---------|--------------|
+| **p16**  | Blending (LR + HGB, α=0.02)     | 0.95    | 0.84    | 1.00       | 0.84   | 0.69     | 0.64     | 0.78        | 0.64    | –            |
+| **p17**  | Stacking + Platt scaling (LR)   | 0.78    | 0.74    | 0.94       | 0.76   | 0.70     | 0.63     | 0.78        | 0.66    | 0.227        |
+
+➡️ **p16** maximizó el AUC en validación, pero con cierto riesgo de sobreajuste.  
+➡️ **p17** ajustó las probabilidades (Brier=0.227 en test) y mantuvo recall alto, ofreciendo **mejor calibración** y utilidad clínica.
+
+---
+
+7️⃣ COGNITIVA-AI-ENSEMBLE-ADVANCED (p18, stacking multicapa)
+
+- **Objetivo:** explorar técnicas de stacking avanzadas con múltiples clasificadores de nivel base y un meta-modelo logístico.
+- **Modelos base:** Logistic Regression (L2), HistGradientBoosting, Gradient Boosting, Random Forest, Extra Trees.
+- **Estrategia:** 
+  - Generación de predicciones OOF (out-of-fold) para evitar fugas.
+  - Meta-modelo: regresión logística + blending con ajuste fino de pesos (α≈0.02).
+  - Validación y test separados por cohortes OAS1 y OAS2.
+- **Resultados:**
+  - [VAL] AUC≈0.92 | F1≈0.83 | Recall≈0.90 | Precision≈0.77.
+  - [TEST] AUC≈0.67 | F1≈0.67 | Recall≈0.78 | Precision≈0.59.
+- **Insights:** 
+  - El meta-modelo favoreció especialmente a Gradient Boosting y Random Forest.
+  - El stacking alcanzó recall alto pero con menor generalización en OAS2 (AUC≈0.5 en test).
+
+---
+
+### P19: **COGNITIVA-AI-OASIS2-P19 (Meta-Ensemble apilado)**  
+
+**Objetivo:** consolidar las señales de múltiples backbones (p11/p14/p16/p18) con un stacking de segundo nivel.  
+
+- **Base learners:** LR, HistGB, GB, RF, LGBM, XGB entrenados con OOF sin fuga, usando features por-paciente derivados (mean / trimmed / top-k / p2).  
+- **Meta-learner:** XGBoost entrenado sobre los OOF; inferencia en TEST con predicciones de base learners.  
+- **Manejo de NaN:** exclusión de columnas con NaN>40% + imputación simple donde procede para modelos que lo requieren.  
+
+**Métricas:**  
+- VAL: AUC≈0.964, PRAUC≈0.966, Acc≈0.913, F1≈0.897, Brier≈0.071.  
+- TEST: AUC≈0.729, PRAUC≈0.688, Acc≈0.714, Prec≈0.773, Recall≈0.531, F1≈0.630, Brier≈0.226.  
+
+➡️ **Conclusión:** el meta-ensemble eleva la performance en validación, pero el recall en TEST sugiere ajustar calibración/umbrales y atender shift OAS1/OAS2. Se programará p20 para calibración fina y umbrales por cohorte.
+
+---
+
+### P20: **COGNITIVA-AI-OASIS2-P20 (Meta-calibración y umbrales por cohorte)**
+
+- **Objetivo:** refinar el meta-ensemble (de p19) con **calibración de probabilidades** y **umbrales específicos**.  
+- **Métodos de calibración:** Platt scaling (sigmoide) e isotónica.  
+- **Escenarios:** calibración **global** y calibración **per-cohort** (OAS1/OAS2).  
+- **Modelos meta evaluados:** HistGradientBoosting (HGB) y Logistic Regression (LR).  
+
+**Resultados:**
+- [VAL|HGB-Isotonic-PerC] AUC≈0.840 | Acc≈0.725 | F1≈0.753 | Brier≈0.156  
+- [TEST|HGB-Isotonic-PerC] AUC≈0.679 | Acc≈0.600 | F1≈0.641 | Brier≈0.253  
+- [VAL|LR-Platt-Global] AUC≈0.743 | Acc≈0.638 | F1≈0.691 | Brier≈0.209  
+- [TEST|LR-Platt-Global] AUC≈0.686 | Acc≈0.629 | F1≈0.658 | Brier≈0.221  
+
+➡️ **Conclusión:** la calibración mejoró la fiabilidad de las probabilidades (Brier menor en VAL). En TEST el recall sigue alto (≈0.78) con sacrificio de precisión, confirmando la necesidad de ajustar umbrales por cohorte.
+
+---
+
+### P21: **COGNITIVA-AI-OASIS2-P21 (Meta-refine)**
+**Objetivo.** Refinar el meta-ensemble con menos base learners y un meta-modelo más simple, controlando NaNs y validación OOF sin fuga.
+
+**Setup.**
+- Datos: 56 features por paciente (tras filtrado NaN>40% se mantienen 36).
+- Cohortes: VAL=69, TEST=70 (con etiqueta de cohorte OAS1/OAS2).
+- Base learners: LR (L2), HGB, LightGBM, XGBoost (OOF estratificado a nivel paciente).
+- Meta-learner: blending/stacking con 4 señales OOF (shape meta VAL=69×4, TEST=70×4).
+- Umbral: F1-máx en VAL → **0.45**.
+
+**Resultados.**
+- **VAL:** AUC≈0.955, PRAUC≈0.931, Acc≈0.870, F1≈0.862, Brier≈0.082.
+- **TEST:** AUC≈0.653, PRAUC≈0.587, Acc≈0.643, F1≈0.627, Brier≈0.285.
+
+**Notas.**
+- LightGBM advirtió *“No further splits with positive gain”* (dataset pequeño + features ya destiladas).
+- El umbral global favorece recall razonable pero con caída de AUC en TEST (shift OAS1/OAS2).
+- Este paso consolida el flujo de meta-señales reducido y sienta base para calibración por cohorte/coste.
+
+---
+
+### P22: **COGNITIVA-AI-OASIS2-P22 (Meta-Ablation con calibración avanzada)**
+
+- **Objetivo:** explorar variantes de calibración (Platt vs Isotónica) aplicadas a meta-modelos (LR y HGB), evaluando su impacto en la estabilidad y confiabilidad de las probabilidades.  
+- **Datos:** 69 pacientes en validación, 70 en test, con 36 features seleccionadas tras descartar columnas con NaN>40%.  
+- **Modelos:** Logistic Regression (LR) y HistGradientBoosting (HGB), calibrados con Platt (*sigmoid*) e Isotonic.  
+- **Umbral:** ajustado en validación para F1-máx (0.30–0.35 según modelo).  
+
+**Resultados (paciente-nivel):**  
+
+- **LR-Platt:** VAL AUC=0.73, F1=0.68 | TEST AUC=0.67, F1=0.69  
+- **LR-Isotonic:** VAL AUC=0.86, F1=0.75 | TEST AUC=0.67, F1=0.65  
+- **HGB-Platt:** VAL AUC=0.82, F1=0.75 | TEST AUC=0.70, F1=0.63  
+- **HGB-Isotonic:** VAL AUC=0.89, F1=0.77 | TEST AUC=0.67, F1=0.64  
+- **Blend (Isotonic):** VAL AUC≈0.90, F1≈0.79 | TEST AUC≈0.68, F1≈0.62  
+
+➡️ **Conclusión:**  
+La calibración isotónica tiende a mejorar el ajuste de las probabilidades (Brier Score bajo en VAL), mientras que Platt produce recall más alto en test. El blend confirma robustez en validación, aunque en test persiste el gap OAS1/OAS2. P22 se consolida como paso de *ablation study* antes de ensambles finales.
+
+---
+
 ## Comparativa global de resultados
 
 | Pipeline | Modalidad        | Modelo                       | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
@@ -321,4 +437,4 @@ La vía lógica pasa a ser **ensembles de backbones**.
    - Estudiar interpretabilidad (Grad-CAM, SHAP).  
 
 ---
-Actualizado: 06/09/2025 22:42
+Actualizado: 07/09/2025 15:43
