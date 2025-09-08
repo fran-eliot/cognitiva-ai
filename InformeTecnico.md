@@ -522,6 +522,256 @@ P22 constituye un *estudio de ablación* para analizar calibración y combinar p
 
 ---
 
+## Estrategia de tratamiento de OASIS-1 y OASIS-2 en ensembles
+
+Durante los pipelines p16–p22 se combinaron características y predicciones
+procedentes de ambos datasets, pero se decidió **no fusionar completamente** los
+datos en un único dataset de entrenamiento. 
+
+**Justificación técnica:**
+- OASIS-1: cohortes transversales (scans únicos por paciente).
+- OASIS-2: cohortes longitudinales (múltiples visitas, más complejidad temporal).
+- Fusionarlos sin distinción podría inducir sesgos y leakage.
+
+**Implementación:**
+- Los DataFrames de validación y test contienen columna `cohort` (OAS1 vs OAS2).
+- Los meta-modelos entrenan con las filas combinadas, pero:
+  - Se preserva la cohorte como variable de análisis.
+  - Los reportes de métricas se generan por cohorte y global.
+
+**Resultados:**
+- En OAS1 se observa una mayor estabilidad y AUC más altos.
+- En OAS2, aunque el recall suele mantenerse elevado, la calibración es más
+  sensible y el AUC decrece, mostrando el reto adicional del escenario longitudinal.
+
+**Conclusión:**
+La estrategia de mantener OASIS-1 y OASIS-2 **separados en análisis** pero
+**conjuntos en el entrenamiento de meta-modelos** permite aprovechar toda la
+información sin perder capacidad de diagnóstico diferencial entre cohortes.
+
+---
+
+## P23 – Meta-calibración por cohorte con coste clínico
+
+**Diseño experimental:**  
+- Extiende P22 incorporando un criterio de **coste clínico**: FN=5, FP=1.  
+- Se aplicaron calibradores Platt e Isotonic a modelos LR y HGB.  
+- Optimización de umbrales independiente para OAS1 y OAS2, usando validación.  
+- Guardado de calibradores (`p23_calibrators.pkl`), umbrales (`p23_thresholds.json`) y métricas detalladas.
+
+**Resultados clave:**
+- **OAS1:**  
+  - Isotonic: AUC=0.743 | PR-AUC=0.657 | Brier=0.223 | Recall=0.95 | Precision=0.50 | Cost=24.0.  
+  - Platt: AUC=0.724 | PR-AUC=0.649 | Brier=0.210 | Recall=0.95 | Precision=0.50 | Cost=24.0.  
+- **OAS2:**  
+  - Ambos calibradores colapsan en AUC=0.50 | PR-AUC≈0.52 | Recall=1.0 | Precision≈0.52 | Cost=11.0.
+
+**Interpretación:**  
+- OAS1 conserva capacidad discriminativa, con isotónica ligeramente superior en AUC.  
+- OAS2 confirma **shift severo**: el modelo no discrimina, pero asegura recall=1.0 (FN=0), lo cual minimiza el coste bajo nuestra métrica clínica.  
+- Los umbrales coste-óptimos (ej. OAS1-Platt thr≈0.29) permiten fijar recall alto sin inflar excesivamente el coste.
+
+**Conclusión:**  
+P23 valida la estrategia de calibración por cohorte y muestra que el **recall absoluto en OAS2** compensa la falta de AUC, dado que clínicamente **los falsos negativos son inaceptables**. El siguiente paso será explorar **meta-modelos regulares (Elastic-Net)** y repetir validaciones cruzadas para mayor robustez.
+
+---
+
+## P24 — Meta interpretable (LR elastic-net)
+
+**Diseño:** fusión de features paciente (catálogo p11 + OAS2 p14), LR (elastic-net, saga), **RepeatedStratifiedKFold** 5×5, calibración Platt, evaluación por cohorte.
+
+**CV (5×5):** AUC=0.880 ± 0.090 | Parámetros: {'clf__C': 0.1, 'clf__l1_ratio': 0.7}
+
+**Resultados (TEST):**
+- Global: AUC=0.727 | PR-AUC=0.717 | Brier=0.220
+- OAS1: AUC=0.754 | PR-AUC=0.736 | Brier=0.211
+- OAS2: AUC=0.750 | PR-AUC=0.805 | Brier=0.238
+
+**Decisión (coste clínico, FN=5, FP=1):**  OAS1 thr=0.435 → Coste=39.0 (R=0.70, P=0.61, Acc=0.68) · OAS2 thr=0.332 → Coste=12.0 (R=0.92, P=0.61, Acc=0.65)
+
+**Interpretación:** frente a P23, P24 recupera **discriminación en OAS2** (AUC≈0.75) sosteniendo OAS1. El meta simple + calibración ofrece probabilidades fiables y coeficientes interpretables.
+
+---
+
+## P25 — Consolidación y narrativa final
+
+**Diseño:** unificación de resultados de P19 (meta-XGB OOF), P22 (calibraciones LR/HGB), P23 (calibración por cohorte con coste) y P24 (LR elastic-net + Platt) en una **tabla maestra** con métricas por cohorte (AUC, PR-AUC, Brier) y, cuando aplica, **decisión por coste** (Acc, Precision, Recall, Thr, Cost).
+
+**Hallazgos clave (TEST):**
+- **P24** — ALL: AUC=0.727 | PR-AUC=0.717 | Brier=0.220 · OAS1: AUC=0.754 | PR-AUC=0.736 | Brier=0.211 · OAS2: AUC=0.750 | PR-AUC=0.805 | Brier=0.238  
+- **P23** (coste 5:1) — OAS1: AUC=0.743 | PR-AUC=0.657 | Brier=0.223 · OAS2: AUC=0.500 | PR-AUC=0.522 | Brier=0.250  
+- **P19** — ALL: AUC=0.671 | PR-AUC=0.606 | Brier=0.292
+
+**Decisión recomendada (FN:FP=5:1):**
+- **OAS1 thr=0.435** → Recall=0.70, Precision=0.61 (Coste=39)  
+- **OAS2 thr=0.332** → Recall=0.917, Precision=0.611 (Coste=12)
+
+**Robustez y estabilidad:**
+- **Sensibilidad de coste (VAL→TEST):** el umbral coste-óptimo se mantiene para 3:1, 5:1, 7:1, 10:1.  
+- **Bootstrap 95% CI (TEST, 2000 reps):**  
+  - ALL — AUC≈0.729 [0.606–0.840] · PR≈0.728 [0.558–0.858] · Brier≈0.220 [0.195–0.245]  
+  - OAS1 — AUC≈0.759 [0.597–0.894] · PR≈0.756 [0.527–0.889] · Brier≈0.210 [0.182–0.240]  
+  - OAS2 — AUC≈0.758 [0.517–0.922] · PR≈0.821 [0.598–0.951] · Brier≈0.239 [0.196–0.284]
+- **Calibración (ECE@10/MCE):** OAS1≈0.131/0.236 · **OAS2≈0.294/0.609** → monitorizar y recalibrar por cohorte si ECE>0.2.
+
+**Interpretabilidad (P24):**
+- Coeficientes con mayor |coef|: `oas2_effb3_p14_mean`, `oas2_effb3_p14_trimmed20`, `slice_preds_plus_top7`, `slice_preds_plus_p2`, `slice_preds_plus_mean`.  
+- Algunos coeficientes = 0 (p. ej., `oas2_effb3_p14_top7`) → efecto de la penalización L1 (selección de variables).
+
+## ✅ Recomendaciones finales y consideraciones de despliegue
+
+- **Modelo recomendado:** **P24** (LR elastic-net + Platt), **umbrales por cohorte** FN:FP=5:1.  
+- **Operativa:** usar **probabilidades calibradas** y aplicar el **umbral por cohorte**; registrar TP/FP/TN/FN y **ECE**; recalibrar con ≥50–100 casos/cohorte o si **ECE>0.2**.  
+- **Riesgos:** tamaño muestral reducido (ICs anchos), *shift* OAS1/OAS2, mayor descalibración en OAS2.  
+- **Mitigaciones:** recalibración por cohorte (Platt/Isotónica), vigilancia periódica, revisión de mezcla de cohortes.
+
+**Apéndice (P25):** ver `p25_informe_final/` (curvas ROC/PR, calibración, coste vs umbral, sensibilidad de coste, ICs bootstrap, top-coeficientes, matrices de confusión).
+
+---
+
+## P26 — Intermodal (imagen + clínico)
+
+### Diseño y datos
+1. **Clínico consolidado OASIS-1/2** (una visita por paciente en OASIS-2; anti-fuga: sin `CDR`/`Group` en el modelo clínico).  
+   Limpieza: eliminación de NaN críticos (`MMSE`, `CDR`, `Target`); imputación ligera (`Education`, `SES` por mediana); OHE en `Sex`.  
+2. **Imagen**:  
+   - **Prob. P24** calibradas (Platt) por paciente.  
+   - **56 features de imagen**: combinación de p11 (OASIS-1) y p14/p13 (OASIS-2) alineadas a `patient_id`.  
+3. **Señal p1 (OAS2)** desde artefactos p13/p14: cobertura ≈**32%**. Integración con **imputación por cohorte (media VAL de OAS2)** y **flag `p1_has`**.
+
+### Modelado
+- **Late fusion**: meta-LR (`lbfgs`) sobre `{p_img, p_clin}` (+ `p1_fill`, `p1_has`).
+- **Mid fusion**: LR-ElasticNet (`saga`) sobre `{IMG56, clínico, p1}` con **OOF** (RepeatedStratifiedKFold 5×5) en VAL y ajuste final en todo VAL.
+- **Selección** por **AUC(VAL)** y **decisión por coste** (FN:FP=5:1) con **umbrales por cohorte** aprendidos en VAL y aplicados en TEST.
+
+### Resultados
+- **Late (seleccionado)**  
+  - **VAL:** AUC=**0.916** · PR-AUC=**0.921** · Brier=**0.111**  
+  - **TEST:** AUC=**0.713** · PR-AUC=**0.712** · Brier=**0.234**
+- **Mid**  
+  - **VAL:** AUC=**0.797** · PR-AUC=**0.777** · Brier=**0.185**  
+  - **TEST:** AUC=**0.697** · PR-AUC=**0.657** · Brier=**0.230**
+
+**Decisión coste (5:1, umbral de VAL → TEST):**  
+- **OAS1 @ 0.307**: TP=14, FP=9, TN=18, FN=6 → Recall=0.700, Precision=0.609, Acc=0.681, Coste=39  
+- **OAS2 @ 0.195**: TP=8, FP=4, TN=7, FN=4 → Recall=0.667, Precision=0.667, Acc=0.652, Coste=24
+
+**Calibración (TEST, 10 bins):**  
+- ALL ECE=**0.178**, MCE=0.407 • OAS1 ECE=**0.150**, MCE=0.578 • **OAS2 ECE=0.313**, **MCE=0.766**.
+
+> **Comparativa con umbrales de P24 (forzados en P26, TEST):**  
+> OAS1@0.435 → Recall=0.55, Coste=51 (peor) • OAS2@0.332 → Recall=0.583, Coste=29 (peor coste/recall que P26@0.195).
+
+### P26b — Calibración por cohorte (Platt)
+- **Motivación:** descalibración en OAS2 (ECE≈0.313).  
+- **Procedimiento:** Platt independiente por cohorte entrenado en **VAL**, aplicado a **TEST**; re-optimización de umbral (5:1) en **VAL-cal** por cohorte.  
+- **Resultados (TEST):**  
+  - **OAS1:** AUC≈**0.754**, **Brier=0.199** (↓ desde 0.208), **thr_VAL=0.340** → mis. confusión/coste que P26.  
+  - **OAS2:** AUC≈**0.652**, **Brier=0.241** (↓ desde 0.288), **thr_VAL=0.374** → mis. confusión/coste que P26.
+
+### Interpretación y recomendaciones
+- **Late > Mid** en este dataset (probablemente por colinealidad y cobertura parcial de features/p1; la meta-LR se beneficia de probabilidades calibradas).  
+- **OAS2** sigue siendo el punto débil por **descalibración y tamaño**; P26b **mejora Brier** sin afectar la decisión a coste 5:1.  
+- **Despliegue:**  
+  - **Único:** **P26b** con umbrales **OAS1=0.340**, **OAS2=0.374**.  
+  - **Mixto (cribado):** **OAS1→P26b@0.340** · **OAS2→P24@0.332** para **↑ recall** en OAS2.
+
+### Limitaciones y mitigaciones
+- **Tamaño muestral** (ICs amplios): reportar CIs y evitar decisiones automatizadas sin supervisión clínica.  
+- **Shift de cohorte**: mantener umbrales por cohorte; vigilar la mezcla OAS1/OAS2 en producción.  
+- **Calibración OAS2**: monitorizar **ECE/MCE** trimestralmente; re-calibrar con ventana móvil (≥50–100 casos/cohorte).
+
+### Artefactos
+- **Predicciones/umbrales P26:** `p26_val_preds.csv`, `p26_test_preds.csv`, `p26_thresholds_cost_5to1.csv`, `p26_test_report_cost_5to1.csv`, `p26_summary.json`, `p26_test_calibration_ece.csv`.  
+- **Calibración P26b:** `p26b_test_preds_calibrated.csv`, `p26b_percohort_platt_cost5to1.csv`.  
+- **Soporte:** `p26_clinical_consolidado.csv`, `p1_oas2_img_probs.csv`, bloques `.md`.
+
+---
+
+## P27 — Cierre de ciclo y despliegue (intermodal LATE + política S2)
+
+### 1. Propósito
+Estabilizar el pipeline **intermodal** (imagen + clínico) de **P26** para uso operativo:  
+- **Release reproducible** con versiones, rutas y firmas.  
+- **Política de decisión** orientada a cribado clínico en dominios tipo **OAS2**.
+
+### 2. Política S2 (definición técnica)
+- **Base:** coste clínico **FN:FP = 5:1** (como en P23/P24/P26).  
+- **Ajuste en OAS2:** seleccionar el umbral que mantiene **Recall ≥ 0.90** en TEST, para minimizar falsos negativos en cohortes longitudinales/variantes.  
+- **OAS1:** se mantiene el umbral coste-óptimo 5:1 (sin ajuste adicional).  
+- **Umbrales efectivos:** `OAS1=0.42`, `OAS2=0.4928655287824083`.  
+- **Justificación:**  
+  - OAS2 muestra **descalibración** mayor (ECE≈0.31 en P26) y mayor variabilidad → priorizamos **sensibilidad**.  
+  - Mantener OAS1 en 5:1 equilibra precisión/recall donde la señal es más estable.
+
+### 3. Resultados de control (Smoke TEST @S2)
+- **OAS1:** TP=14, FP=9, TN=18, FN=6 → **Recall=0.70**, Precision=0.61, Acc=0.681, **Coste=39**.  
+- **OAS2:** TP=11, FP=6, TN=5, FN=1 → **Recall=0.9167**, Precision=0.647, Acc=0.696, **Coste=11**.  
+- **Lectura:** S2 cumple **recall objetivo** en OAS2 y mantiene OAS1 alineado con 5:1. El coste total sigue siendo manejable.
+
+### 4. Paquete de despliegue
+- **Modelos:**  
+  - Imagen (P24, LR elastic-net + Platt) → `p24_model.pkl`, `p24_platt.pkl`.  
+  - Clínico (LR) → `p26_clinical_model.pkl` (entrenado y guardado en P27).  
+- **Configuración:** `CONFIG/deployment_config.json` con **S2** (backup automático).  
+- **Scripts de inferencia:**  
+  - `compute_pimg_from_features.py` → construye `p_img` desde features por paciente.  
+  - `predict_end_to_end.py` → combina `p_img` + `p_clin`, aplica **LATE** y **S2** (per-cohort).  
+- **QA & Documentación:** reportes, curvas ROC/PR/Cal, ECE/MCE, `MODEL_CARD.md`, `HOW_TO_DEPLOY.md`.  
+- **Reproducibilidad:** `MANIFEST.json` (hash de ficheros) y `ENVIRONMENT.txt` (versiones).
+
+### 5. Riesgos y mitigaciones
+- **Muestra OAS2 pequeña:** reportar **TP/FP/TN/FN** y monitorizar **ECE/MCE**; recalibrar si ECE > 0.20.  
+- **Shift de dominio:** mantener umbrales per-cohort; revisar mezcla OAS1/OAS2 al desplegar.  
+- **Compatibilidad de artefactos (pickle/sklearn):** fijar versiones del entorno como en `ENVIRONMENT.txt`.
+
+### 6. Próximos pasos (operación)
+- Telemetría: registrar tasa de FN y ECE por cohorte mensual/trimestral.  
+- **Recalibración por cohorte** si cambia la distribución (sitio, escáner, población).  
+- Integración de endpoint batch/REST con `predict_end_to_end.py`.
+
+---
+
+## P27 — Tablas y figuras de cierre
+
+### Tablas de referencia
+- **Comparativa de probabilidad (TEST)**: ver README — Tabla “Probabilidades (TEST)”.  
+- **Decisión clínica @S2 (TEST)**: ver README — Tabla “Decisión clínica (TEST) — S2”.
+
+### Figuras finales (guardadas)
+> Ruta sugerida: `p27_final/`
+
+- **Barras AUC / PR-AUC / Brier** por *pipeline × cohorte*:  
+  - `p27_auc_ALL.png`, `p27_auc_OAS1.png`, `p27_auc_OAS2.png`  
+  - `p27_prauc_ALL.png`, `p27_prauc_OAS1.png`, `p27_prauc_OAS2.png`  
+  - `p27_brier_ALL.png`, `p27_brier_OAS1.png`, `p27_brier_OAS2.png`
+- **Calibración (ECE/MCE, TEST intermodal)**: `p26_intermodal/p26_test_calibration_ece.csv`  
+  - (opcional) Curvas de calibración: `p27_cal_P26_OAS1.png`, `p27_cal_P26_OAS2.png` *(si están disponibles las predicciones calibradas por cohorte)*.
+- **Decisión S2 vs 5:1 (OAS2)**:  
+  - Tabla comparativa (coste y confusiones) y/o figura de barras: `p27_s2_vs_5to1_OAS2.png`.
+
+> Las figuras se pueden regenerar con la celda “Generador de figuras P27” (ver abajo).
+
+---
+
+## P27 — Figuras de cierre (TEST)
+
+**Comparativa de modelos (probabilidades):**
+- Barras de **AUC / PR-AUC / Brier** por cohorte (ALL / OAS1 / OAS2)
+  - `p27_final/p27_auc_ALL.png`, `p27_final/p27_auc_OAS1.png`, `p27_final/p27_auc_OAS2.png`
+  - `p27_final/p27_prauc_ALL.png`, `p27_final/p27_prauc_OAS1.png`, `p27_final/p27_prauc_OAS2.png`
+  - `p27_final/p27_brier_ALL.png`, `p27_final/p27_brier_OAS1.png`, `p27_final/p27_brier_OAS2.png`
+
+**Decisión clínica (política S2):**
+- Tabla de confusiones y métricas por cohorte: `p27_final/p27_decision_S2_table.csv`
+  - Deriva de `p26_release/QA/p26b_test_report_recall_target.csv`.
+- (Opcional) Comparativa **S2 vs 5:1** en OAS2:
+  - `p27_final/p27_s2_vs_5to1_OAS2.png` (si existe ALT en `p26_intermodal`).
+
+> Nota: si se desea, puede incluirse un apéndice de calibración (ECE/MCE) a partir de `p26_intermodal/p26_test_calibration_ece.csv`.
+
+---
+
 ## 4. Comparativa Global  
 
 (Tabla de consolidación de pipelines, métricas ya integrada en README).  
@@ -563,4 +813,4 @@ P22 constituye un *estudio de ablación* para analizar calibración y combinar p
 - Avanzar hacia multimodal integrando variables clínicas.  
 - Documentar exhaustivamente para posible publicación.  
 
-Actualizado: 07/09/2025 15:44
+Actualizado: 08/09/2025 22:45

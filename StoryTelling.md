@@ -62,6 +62,55 @@ La historia de Pipeline 10, por tanto, no es “más modelos”, sino “mejor a
 
 ---
 
+## Ensembles: navegando entre OASIS-1 y OASIS-2
+
+Hasta este punto, habíamos trabajado con cada dataset por separado.  
+OASIS-1 nos ofrecía una visión clara y más sencilla: cohortes transversales, un
+scan por paciente, señales limpias y resultados consistentes.  
+OASIS-2, en cambio, era un reto mayor: cohortes longitudinales, múltiples
+visitas por paciente, más ruido, más variabilidad… pero también una oportunidad
+de probar la solidez real de nuestros modelos.
+
+Al llegar a los pipelines de ensembles (p16–p22) nos enfrentamos a la pregunta:
+**¿debíamos fusionar ambos datasets o tratarlos por separado?**
+
+La respuesta fue clara:  
+- **Entrenamos meta-modelos** (LR, HGB, XGB, blends) sobre los datos combinados,
+  para aprovechar toda la información.  
+- **Mantenemos la cohorte como identidad explícita** (`OAS1` o `OAS2`) en todos
+  los análisis, evitando leakage y pudiendo comparar escenarios.
+
+El resultado fue revelador:  
+- En **OASIS-1** los ensembles alcanzaban AUC altos y calibración estable.  
+- En **OASIS-2** manteníamos buen recall, pero la calibración era más difícil y
+  el AUC bajaba, reflejando la complejidad del dominio longitudinal.  
+- A nivel **global (ALL)**, las métricas combinadas nos daban una imagen más
+  equilibrada del rendimiento.
+
+Este contraste no es un fallo, sino un hallazgo clave: **nuestros ensembles
+capturan bien la señal en datos “fáciles” (OASIS-1), pero muestran el desafío
+cuando se enfrentan a la variabilidad real de OASIS-2**.  
+De aquí surge la necesidad de calibraciones más finas y umbrales específicos
+por cohorte (p20–p22).
+
+➡️ La historia de OASIS-1 y OASIS-2 es, en realidad, la historia de la
+generalización: no basta con brillar en validación controlada, hay que resistir
+en escenarios más complejos y cercanos a la clínica real.
+
+---
+
+### 🧩 Ensembles calibrados y coste clínico (P23)
+
+Tras comparar Platt vs Isotónica en P22, dimos un paso más realista: **ajustar umbrales por cohorte bajo coste clínico (FN≫FP)**.
+
+- En **OASIS-1** logramos recall≈0.95 con AUC≈0.74 y coste≈24.  
+- En **OASIS-2**, aunque el modelo no discrimina (AUC=0.5), alcanzamos recall=1.0 → ningún falso negativo, a cambio de más falsos positivos.  
+
+👉 El mensaje clínico es claro: **mejor sobrediagnosticar que perder un paciente con Alzheimer incipiente**.  
+Este pipeline simboliza cómo la IA no solo optimiza métricas, sino que puede alinearse con **criterios médicos reales**.
+
+---
+
 ### 5️⃣ El futuro multimodal
 - Narrativa: El siguiente paso es **fusionar clínico + MRI**.  
 - Visual sugerido: ilustración de dos ríos uniéndose en uno solo 🌊.  
