@@ -871,6 +871,18 @@ _Artefactos:_ `p27_final/*.png`, `p27_final/p27_decision_S2_table.csv`.
 
 ---
 
+### 2025-09-10 — P27: Scripts de inferencia + GUI y política S2
+
+- Añadidos **scripts operativos**:
+  - `compute_pimg_from_features.py` → genera `p_img` (imagen + Platt)
+  - `predict_end_to_end.py` → fusión LATE + **S2** (umbrales por cohorte)
+- Añadida **app Streamlit (`app.py`)** para ejecutar el pipeline vía navegador.
+- **Política activa S2** documentada (OAS1=0.42, OAS2≈0.4928655287824083) en `p26_release/CONFIG/deployment_config.json`.
+- Preparado material de documentación (`docs/*.md`) y rutas de modelos (P24/P26).
+- Próximos pasos: API REST (FastAPI), Docker, QA automatizado (golden set), monitorización ECE/MCE y coste.
+
+---
+
 ...
 ### 🧪 Extractos de logs útiles
 

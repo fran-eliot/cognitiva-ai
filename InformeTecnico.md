@@ -772,6 +772,34 @@ Estabilizar el pipeline **intermodal** (imagen + clínico) de **P26** para uso o
 
 ---
 
+## P27 — Operativización de la inferencia intermodal (scripts + GUI) con S2
+
+**Objetivo:** disponer de herramientas reproducibles y multiplataforma para ejecutar el pipeline intermodal (imagen + clínico) fuera de Colab, aplicando la **política S2** por cohorte.
+
+**Componentes:**
+- `compute_pimg_from_features.py`: infiere **p_img** desde **features por paciente** (56 columnas) con **P24** (LR elastic-net) y calibración **Platt** cuando está disponible.
+- `predict_end_to_end.py`: calcula **p_clin** con el modelo clínico P26, realiza **fusión LATE** (`proba_cal = (p_img + p_clin)/2`) y aplica **S2** (umbrales por cohorte) para obtener la **decisión**.
+- `app.py` (Streamlit): interfaz web local para cargar CSVs, ejecutar el pipeline y descargar resultados, con opción de QA si hay `y_true`.
+
+**Política S2 (decisión):**
+- OAS1: umbral **0.42** (derivado de coste 5:1 FN:FP).  
+- OAS2: umbral **≈0.4928655287824083** (ajustado a un **target de recall** en OAS2, manteniendo el coste controlado).
+
+**Razonamiento:**  
+S2 mantiene el sesgo **pro-sensibilidad** (cribado: minimizar FN), respetando el **shift** entre cohortes (OAS1/OAS2). Esta política se justificó con los resultados de P24/P26 y las curvas coste–umbral (VAL→TEST). El umbral es **configurable** (JSON) para facilitar recalibraciones locales.
+
+**Entradas mínimas:**
+- CSV **features por paciente**: `patient_id`, `cohort`, + 56 columnas de P24.  
+- CSV **clínico**: `patient_id`, `cohort`, `Age, Sex, Education, SES, MMSE, eTIV, nWBV, ASF, Delay` (imputación mediana y mapeo de `Sex` automático).
+
+**Salidas:**
+- `p_img.csv` (imagen, calibrada), `predictions.csv` (intermodal con `proba_cal` y `decision`), y `predictions_qa.csv` si hay `y_true`.
+
+**Notas de despliegue:**  
+Versionado de `scikit-learn` consistente con los **pickles** de P24/P26; ECE/MCE aconsejada en monitorización; umbrales S2 en `deployment_config.json`.
+
+---
+
 ## 4. Comparativa Global  
 
 (Tabla de consolidación de pipelines, métricas ya integrada en README).  

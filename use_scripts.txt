@@ -1,0 +1,13 @@
+# 1) p_img desde features
+python compute_pimg_from_features.py \
+  --features data/patient_features.csv \
+  --models_dir p26_release/models \
+  --out work/p_img.csv
+
+# 2) E2E (fusión + S2)
+python predict_end_to_end.py \
+  --pimg work/p_img.csv \
+  --clinic data/clinical.csv \
+  --models_dir p26_release/models \
+  --config p26_release/CONFIG/deployment_config.json \
+  --out work/predictions.csv

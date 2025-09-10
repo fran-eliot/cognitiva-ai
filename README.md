@@ -598,6 +598,25 @@ AUC / PR-AUC / Brier por *pipeline × cohorte* (tomado de `p25_master_table.csv`
 
 ---
 
+### P27 — Scripts operativos + App GUI (intermodal con política S2)
+
+**Novedades:**
+- **compute_pimg_from_features.py** → genera `p_img` (prob. por imagen, calibrada) a partir de **features por paciente** usando el modelo **P24** + **Platt**.
+- **predict_end_to_end.py** → realiza **fusión LATE** (`p_img` + `p_clin`) y aplica **política S2** (umbrales por cohorte) → `proba_cal` + `decision`.
+- **app.py (Streamlit)** → **app web local** para ejecutar el pipeline sin terminal (subes CSVs y descargas resultados).
+
+**Política S2 (activa):**
+- OAS1 → **0.42** (FN:FP=5:1)  
+- OAS2 → **≈0.4928655287824083** (umbral ajustado para recall objetivo en OAS2)  
+(Editable en `p26_release/CONFIG/deployment_config.json`)
+
+**Uso típico:**
+1. `compute_pimg_from_features.py --features patient_features.csv --models_dir p26_release/models --out p_img.csv`
+2. `predict_end_to_end.py --pimg p_img.csv --clinic clinical.csv --models_dir p26_release/models --config p26_release/CONFIG/deployment_config.json --out predictions.csv`
+3. (Opcional) `streamlit run app.py` para hacerlo vía interfaz.
+
+---
+
 ## Comparativa global de resultados
 
 | Pipeline | Modalidad        | Modelo                       | AUC (Test) | PR-AUC | Acc   | Recall | Precision |
