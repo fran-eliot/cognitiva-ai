@@ -1,20 +1,28 @@
-# 🧠 Proyecto de Detección Temprana de Alzheimer (COGNITIVA-AI) – Experimentos de Clasificación Multimodal
+# 🧠 Proyecto de Detección Temprana de Alzheimer con datos clínicos y de resonancia magnética (COGNITIVA-AI) – Experimentos de Clasificación Multimodal
 
 Este repositorio documenta **toda la evolución experimental** en el marco del proyecto **Cognitiva-AI**, cuyo objetivo ha sido **explorar modelos de machine learning para la predicción binaria de deterioro cognitivo (Alzheimer)** combinando  **datos clínicos tabulares** y **resonancias magnéticas estructurales (MRI)** de los conjuntos **OASIS-1 y OASIS-2**.   
 
 El enfoque se diseñó con una idea central: **replicar el razonamiento clínico** usando tanto la información disponible en la historia del paciente (tests neuropsicológicos, edad, educación, volumen cerebral) como en las **imágenes estructurales cerebrales**.  
+
+La hipótesis central que guía todo el trabajo es que **distintas fuentes de información y distintas arquitecturas de modelos pueden capturar facetas complementarias del proceso neurodegenerativo**.  
 
 > **Idea fuerza**: un flujo **reproducible, interpretable y clínicamente orientado** que prioriza **recall** (minimizar FN) y mantiene la **calibración** de probabilidades con umbrales **por cohorte** (OAS1/OAS2).
 
 El documento sigue un enfoque **cuaderno de bitácora extendido**, en el que cada pipeline corresponde a un conjunto de experimentos con motivaciones, configuraciones técnicas, métricas obtenidas y reflexiones.  
 El tono es intencionadamente **verboso y detallado**: se incluyen incidencias de ejecución, errores y aprendizajes prácticos que acompañaron cada etapa.  
 
-Se construyeron **diez pipelines** para analizar y comparar modalidades:  
+Se construyeron **diez pipelines** para analizar y comparar modalidades siguiendo una filosofía de **experimentación incremental**:  
+- comenzar con modelos sencillos sobre datos clínicos,  
+- avanzar hacia CNNs entrenadas sobre imágenes MRI,  
+- introducir calibración, normalización y estrategias de ensemble,  
+- explorar arquitecturas modernas de visión,  
+- y finalmente preparar el terreno hacia un modelo multimodal.
+  
 
-1. **COGNITIVA-AI-CLINIC** → ML clásico con datos clínicos (solo OASIS-2).  
-2. **COGNITIVA-AI-CLINIC-IMPROVED** → ML clásico con datos clínicos fusionados OASIS-1 + OASIS-2.  
-3. **COGNITIVA-AI-IMAGES** → Deep Learning con MRI (solo OASIS-2, ResNet50).  
-4. **COGNITIVA-AI-IMAGES-IMPROVED** → fusión de OASIS-1+2 en imágenes.  
+1. **P1_COGNITIVA_AI_CLINIC** → ML clásico con datos clínicos (solo OASIS-2).  
+2. **P2_COGNITIVA_AI_CLINIC_IMPROVED** → ML clásico con datos clínicos fusionados OASIS-1 + OASIS-2.  
+3. **P3_COGNITIVA_AI_IMAGES** → Deep Learning con MRI (solo OASIS-2, ResNet50).  
+4. **P4_COGNITIVA_AI_IMAGES_IMPROVED** → fusión de OASIS-1+2 en imágenes.  
 5. **COGNITIVA-AI-IMAGES-IMPROVED-GPU (ResNet18)** → embeddings ResNet18 entrenados en **Google Colab (GPU)**.  
 6. **COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED (EffNet-B3)** → embeddings EfficientNet-B3 + ensemble LR+XGB a nivel paciente.  
 7. **COGNITIVA-AI-FINETUNING** → Fine-tuning directo de EfficientNet-B3 en **Google Colab (GPU)** con *temperature scaling* y agregación a **nivel paciente**.  
@@ -47,7 +55,7 @@ Se construyeron **diez pipelines** para analizar y comparar modalidades:
 
 ## 📦 Datos y Variables Clínicas
 
-Los datos provienen de los proyectos **OASIS-1** y **OASIS-2**:
+El dataset de referencia ha sido **OASIS** (Open Access Series of Imaging Studies), en particular sus cohortes OASIS-2 y derivados:
 
 - **OASIS-1 (transversal):** 416 sujetos, una sola visita por paciente.  
   - No tiene variable `Group`, la severidad se deduce a partir de **CDR** (`0=No demencia`, `>0=Demencia`).  
@@ -76,9 +84,21 @@ Estas variables combinan **información clínica y volumétrica**, proporcionand
 **Datasets**  
 - **OASIS‑1** (cross‑sectional). Etiqueta derivada de **CDR** (CDR=0→0, CDR>0→1).  
 - **OASIS‑2** (longitudinal). Etiqueta a partir de **Group** (*Nondemented=0; Demented/Converted=1*).  
-- Criterio **1 visita/paciente** en OASIS‑2 para evitar *leakage* inter‑sesión.  
+- Criterio **primera visita/paciente** (baseline) en OASIS‑2 para evitar *leakage* inter‑sesión.  (En OASIS1 es ya 1 entrada por sujeto).
+**Target unificado (binario):**  
+- `0 = Nondemented`  
+- `1 = Demented` o `Converted` 
+- **NaN críticos**: eliminamos filas sin `mmse`, `cdr` o `target`.
+-  **Imputación**: `ses` y `education` con **mediana**. 
+- **Codificación**: one-hot para `sex` (y `hand` si se usa).
+-  **Escalado**: `StandardScaler` **ajustado solo en train**.
+- **MRI:** archivos `.hdr/.img` por paciente, con segmentaciones asociadas (`FSL_SEG`).  
 - MRI: **20 slices axiales** equiespaciadas, normalización *z‑score* + **CLAHE** opcional.  
 - Splits **estratificados a nivel paciente** (sin fuga).
+
+> ⚠️ **Control estricto de fugas de información (data leakage):**  
+> - En clínico → seleccionamos **solo una visita por sujeto (baseline)** de cada paciente para no mezclar repeticiones del mismo paciente entre train y test.  
+> - Con imágenes (MRI): el **split es por paciente/scan_id**; todas las slices de un scan quedan en el mismo subset.  
 
 **Estructura de carpetas (clave)**
 ```
@@ -108,6 +128,8 @@ El proceso se organizó en **pipelines numerados**. Cada uno corresponde a un co
 ---
 
 ## Pipelines experimentales
+
+A continuación, se detallan los diferentes pipelines experimentales desarrollados en el proyecto. Cada uno introduce una idea nueva, una arquitectura diferente o una estrategia de evaluación alternativa.
 
 ### Resumen ejecutivo
 
@@ -143,11 +165,38 @@ El proceso se organizó en **pipelines numerados**. Cada uno corresponde a un co
 
 ---
 
-### P1: COGNITIVA-AI-CLINIC (solo OASIS-2) 
+### P1: COGNITIVA-AI-CLINIC (datos clínicos solo OASIS-2) 
 
 - **Motivación:** establecer un baseline sólido con datos tabulares clínicos. 
-- **Preprocesamiento**: imputación SES/Educación por mediana, escalado estándar, codificación one-hot.  
-- **Modelos**: Logistic Regression, Random Forest, XGBoost.  
+### 🧹 Preprocesamiento
+- **Renombrado a `snake_case`** para legibilidad (`Subject ID → subject_id`, etc.).  
+- **Selección de una visita por sujeto**: baseline (mínimo `mr_delay`) para tener un único registro representativo por paciente.  
+- Conversión de tipos numéricos y **imputación** (mediana) para columnas con NaN (`ses`, `mmse`, `cdr`, …).  
+- Codificación:
+  - `sex`: `M → 0`, `F → 1`.  
+  - `hand`: one-hot (categoría desconocida a `Unknown`).
+
+### ⚙️ Modelado
+- **Modelos base:** Logistic Regression, Random Forest, XGBoost.  
+- **Validación:** `StratifiedKFold` y métrica **ROC-AUC**.  
+- **Optimización:**  
+  - *GridSearchCV* para Random Forest.  
+  - **Algoritmo Genético (DEAP)** para RF/XGB: búsqueda evolutiva de hiperparámetros (más eficiente en espacios grandes/no convexos).
+
+> ℹ️ **Por qué ROC-AUC**: mide la capacidad de discriminación a todos los umbrales, robusta ante desbalance moderado y facilita comparación entre modelos.  
+
+### 📊 Resultados (clínico)
+
+- **Cross-val (grid/genético):**  
+  - RF (grid) → mejor ROC-AUC CV ≈ **0.9224**  
+  - RF (GA) → mejor ROC-AUC CV ≈ **0.9215**  
+  - XGB (GA) → mejor ROC-AUC CV ≈ **0.9215**
+
+- **Test hold-out (final):**
+  | Modelo              | ROC-AUC (Test) |
+  |---------------------|----------------|
+  | Random Forest (opt) | 0.884          |
+  | **XGBoost (opt)**   | **0.897**      |
 
 ### 📊 Resultados
 - Regresión Logística → **0.912 ± 0.050 (CV)**  
@@ -164,24 +213,56 @@ Los datos clínicos solos ya ofrecen un baseline sorprendentemente competitivo. 
 
 ### P2: COGNITIVA-AI-CLINIC-IMPROVED (datos clínicos fusionados OASIS-1 + OASIS-2)
 
-- **Motivación:** combinar datos clínicos fusionados de ambas cohortes.
+- **Motivación:** combinar datos clínicos fusionados de ambas cohortes para **aumentar la robustez**.
 - **Unificación de columnas** (`snake_case`).  
-- **Selección baseline** en OASIS-2.  
+- **Selección baseline** primera visita en OASIS-2.  
 - **Target unificado**: `Group` (OASIS-2) o `CDR` (OASIS-1).  
-- **Etiquetas de cohortes** para trazabilidad. 
+- **Imputación:** SES/Educación → mediana.
+- **Escalado y codificación**.
+- **Etiquetas de cohortes** para trazabilidad (`OASIS1` vs `OASIS2`). 
 
-### 📊 Resultados
+### ⚙️ Modelado
+- Modelos: Logistic Regression, Random Forest, XGBoost.  
+- Cross-validation estratificado (5 folds).  Escalado dentro del fold para evitar leakage.
+- Métrica principal: **ROC-AUC**.
+- **Reproducibilidad**: semillas fijadas y paralelismo limitado.
+
+### 📊 Resultados  clínicos tras fusión
 - **Hold-out inicial (80/20):** LogReg=1.000 | RF=0.986 | XGB=0.991  
 - **Validación cruzada (5-fold):**  
   - LogReg → **0.979 ± 0.012**  
   - RF → **0.974 ± 0.018**  
   - XGB → **0.975 ± 0.021**  
 
-➡️ Modelos muy estables con excelente generalización.  
+➡️ La fusión de datasets clínicos genera modelos **muy estables y con excelente generalización**.  
 
-**Umbral clínico (XGB):** recall≈100% con 15 falsos positivos.
-**Interpretación:** mejor tolerar falsos positivos que falsos negativos.
+### ⚖️ Manejo del desbalance
+- Distribución real ≈ 54% vs 46% → ligero desbalance.  
+- Estrategias usadas: `class_weight=balanced` y ajuste de **umbral clínico** para priorizar **recall**.    
 
+### 🩺 Umbral clínico (XGBoost)
+- Ajustado para maximizar **recall (≈100%)**.  
+- Resultado: recall perfecto, con más falsos positivos (~15/77 test).  
+- Interpretación clínica: **preferimos un falso positivo antes que un falso negativo**, ya que permite tratar antes. 
+
+- Observación: el aumento de datos clínicos mejora la capacidad predictiva.  
+
+### 🩺 Interpretabilidad
+- **Coeficientes LR:**  
+  - CDR (coef ≈ 4.15) → predictor más fuerte.  
+  - MMSE (negativo fuerte).  
+  - Volumétricas (eTIV, nWBV, ASF) menos influyentes.  
+- **Ablación:**  
+  - Sin CDR → AUC = 0.86.  
+  - Sin CDR+MMSE → AUC = 0.76.  
+  - Sin volumétricas → AUC ≈ 1.0.  
+
+➡️ **Conclusión clínica:** los test **CDR + MMSE son críticos**, las volumétricas aportan menos.  
+
+### 🔧 Calibración y Robustez
+- Mejor calibrado: **LogReg + Isotónica (Brier=0.010)**.  
+- Nested CV (10x5) → ROC-AUC = **0.985 ± 0.011**.  
+- Ensemble (LR+RF+XGB) → ROC-AUC ≈ **0.995**.  
 
 - **Modelo:** XGBoost extendido.  
 - **Resultados:**  
@@ -196,41 +277,152 @@ La fusión clínica alcanza casi techo de rendimiento en esta cohorte. Refuerza 
 ### P3: COGNITIVA-AI-IMAGES (MRI OASIS-2) – ResNet50
 
 - **Motivación:** baseline en imágenes MRI con un backbone clásico.  
-- **Pipeline**: conversión `.hdr/.img` a slices, normalización, augmentations ligeros.
+- **🛠️ Preprocesamiento de imágenes**
+- Conversión de `.hdr/.img` a **slices PNG** (cortes axiales centrales).  
+- **Normalización** 0–255, opción de **CLAHE**, y **z-score por slice**.  
+- **Data augmentation** (train): flips, rotaciones ±10°, jitter ligero.  
+- **Evaluación por paciente**: promediado de probabilidades por `scan_id`.
+- **Pipeline**: conversión `.hdr/.img` a cortes axiales (slices), normalización [0–255], augmentations ligeros.
+
 - **Modelo:** ResNet50 preentrenado en ImageNet, fine-tuning en OASIS-2.  
 - **Resultados:**  
   - 5 slices → **AUC=0.938 (test)**  
   - 20 slices + z-score → AUC=0.858 (mayor recall, menor precisión). 
 
+  ## 📊 Resultados (MRI – nivel paciente)
+
+> **Split estratificado por paciente 60/20/20** (train/val/test)
+
+| Configuración | Preprocesamiento | Train Acc | Val Acc | Test Acc | ROC-AUC | Comentarios |
+|---|---|---:|---:|---:|---:|---|
+| **5 slices** | **Sin CLAHE** | ↑ (≈0.94) | ≈0.73 | **0.89** | **0.938** | Línea base fuerte; generaliza bien en test. |
+| 5 slices | CLAHE | ≈0.95 | ≈0.72 | 0.69 | 0.777 | Mejora visual, pero menor discriminación; probable realce de ruido. |
+| 5 slices | CLAHE + z-score | ≈0.96 | ≈0.75 | 0.72 | 0.820 | Recupera estabilidad; mejor balance entre clases, sigue < baseline. |
+| **20 slices** | CLAHE + z-score | **0.98** | ≈0.71 | **0.80** | **0.858** | Más cobertura anatómica; mejora global respecto a CLAHE, aunque con algo de sobreajuste. |
+
+**Conclusión MRI:**  
+- El **baseline sin CLAHE con 5 slices** fue el más alto en **ROC-AUC (0.94)** en nuestro test.  
+- **Aumentar a 20 slices** mejora la robustez general y el *recall* de la clase positiva, pero aún no supera al baseline en ROC-AUC.  
+- **CLAHE** debe usarse con cautela (o de forma selectiva) y acompañado de normalización adecuada.
+
+## 🧠 Decisiones de diseño (y por qué)
+
+- **Binarizar `Group`** (`Nondemented` vs `Demented/Converted`): simplifica el problema y mejora estabilidad en CV y test.  
+- **Una visita por sujeto (clínico)**: evita duplicar pacientes y **fuga de información**.  
+- **Split por paciente (imágenes)**: todas las slices de un `scan_id` deben ir al mismo subset → evaluación realista.  
+- **Evaluación por paciente** (MRI): lo clínicamente relevante es la clasificación del **paciente**, no de cada corte aislado.  
+- **Early stopping**: protege frente a sobreajuste visible (train ≫ val).  
+- **Métrica ROC-AUC**: adecuada con clases desbalanceadas/moderadas y para comparar modelos a distintos umbrales.
+
 **Reflexión:**  
-Primer resultado fuerte en imagen pura. Abre la puerta a comparar clínico vs imagen.  Muy costoso en CPU
+Primer resultado fuerte en imagen pura. Abre la puerta a comparar clínico vs imagen.  
+Dependiente del preprocesamiento y costoso en CPU.
+
+---
+
+### 🔹 Clínico – OASIS-2 (tabular)
+
+| Modelo / Variante                      | Validación (CV 5-fold)         | Test hold-out | Notas |
+|---------------------------------------|---------------------------------|---------------|-------|
+| Logistic Regression (baseline)        | **0.912 ± 0.050**               | 0.911 (AUC)   | Split inicial; buen baseline y muy estable |
+| Random Forest (balanced)              | **0.925 ± 0.032**               | —             | CV alto con `class_weight` |
+| XGBoost (default)                     | **0.907 ± 0.032**               | —             | Buen baseline |
+| **RF (GridSearchCV, mejor)**          | **0.922**                       | —             | Ajuste clásico |
+| **RF (Alg. Genético, mejor)**         | **0.922**                       | —             | DEAP; rendimiento parejo al grid |
+| **XGBoost (Alg. Genético, mejor)**    | **0.922**                       | —             | GA efectivo |
+| **RF (optimizado, test)**             | —                               | **0.884**     | Test de referencia |
+| **XGBoost (optimizado, test)**        | —                               | **0.897**     | **Mejor en test** |
+
+> *Métricas clínicas: ROC-AUC. El test se hizo con un split estratificado y honesto por paciente.*
+
+---
+
+### 🔹 Imágenes – OASIS-2 (ResNet50, nivel **paciente**)
+
+| Slices | Preprocesamiento                 | Train Acc | Val Acc | **Test Acc** | **ROC-AUC** | Comentarios |
+|-------:|----------------------------------|----------:|--------:|-------------:|------------:|-------------|
+| **5**  | **Sin CLAHE**                    | ~0.94     | ~0.73   | **0.89**     | **0.938**   | **Mejor AUC**; baseline fuerte |
+| 5      | CLAHE                            | ~0.95     | ~0.72   | 0.69         | 0.777       | Realce local perjudicó patrones sutiles |
+| 5      | CLAHE + z-score (slice)          | ~0.96     | ~0.75   | 0.72         | 0.820       | Recupera parte del rendimiento |
+| **20** | CLAHE + z-score (slice)          | **0.98**  | ~0.71   | **0.80**     | **0.858**   | Más cobertura anatómica; mejor recall |
+
+> **Conclusión OASIS-2 (imágenes):** el **baseline 5 slices sin CLAHE** obtuvo el **mejor AUC (0.938)**; usar más slices (20) mejora robustez y recall pero no supera ese AUC en nuestro test.
 
 ---
 
 ### P4: COGNITIVA-AI-IMAGES-IMPROVED (MRI OASIS-1/2)
 
+- Objetivo: fusionar OASIS-1 y OASIS-2 en imágenes.  
+- Ventaja: aumentar el número de pacientes y la robustez del modelo.  
+
+### 🔧 Decisiones de diseño
+- Generación de **embeddings ResNet18** (preentrenado en ImageNet) de dimensión 512 por slice axial.  
+- Clasificación con **Logistic Regression**.  
+- **Calibración isotónica** mediante `CalibratedClassifierCV`.  
+- Evaluación tanto a nivel **slice** como **paciente** (media de probabilidades).  
 - **Split paciente/scan** estricto.  
-- **Más slices** por paciente.  
+- **Más slices** por paciente. 
 
 ### 📊 Resultados
-- Pipeline más robusto, pero alto coste computacional en CPU.  
+- **Sin calibrar (LR):**  
+  - Val: AUC ≈ 0.624 | Test: AUC ≈ 0.661  
+  - Brier ≈ 0.33 (probabilidades poco confiables)  
+
+- **Con calibrado (LR + isotónica):**  
+  - Val: AUC ≈ 0.639 | Test: AUC ≈ 0.656  
+  - Brier ≈ 0.23 (**mejora sustancial en calidad probabilística**)  
+
+- **Nivel paciente (thr=0.5):**  
+  - Val: AUC=0.730, PR-AUC=0.641, Recall=0.25  
+  - Test: AUC=0.719, PR-AUC=0.610, Recall=0.40  
+
+- **Umbral clínico ajustado (thr≈0.40, recall≥0.90 en Val):**  
+  - Val: Recall=0.90 | Precision=0.64  
+  - Test: Recall=0.70 | Precision=0.56  
+
+### 🩺 Conclusión
+El calibrado isotónico no incrementa la discriminación (AUC estable ≈0.72), pero **reduce drásticamente el error de probabilidad (Brier Score)**, haciendo que las salidas del modelo sean más confiables para escenarios clínicos. Se establece un **baseline robusto en GPU**, desde el que explorar mejoras adicionales (otros clasificadores, pooling más sofisticado, modelos 2.5D/3D).
+
+Pipeline más robusto, pero alto coste computacional en CPU.  
 
 ---
 
 ### P5: COGNITIVA-AI-IMAGES-IMPROVED-GPU – ResNet18 calibrado
 
-- **Motivación:** probar backbone más ligero en entorno Colab.  
+- **Motivación:** probar backbone más ligero en entorno Colab (para usar GPUs).  
 - **Modelo:** ResNet18 (512D) con calibración posterior.
+- Validación cruzada interna (cv=5), evitando el uso de `cv='prefit'` (deprecado en scikit-learn ≥1.6).
 - Clasificación con **Logistic Regression**.  
 - **Calibración isotónica**.    
 - **Resultados:**  
- - **Slice-nivel:** AUC≈0.66 | Brier≈0.23.  
+- **Slice-nivel (thr=0.5)**  
+  - [VAL] Acc=0.62 | AUC=0.627 | PR-AUC=0.538 | Brier=0.296 | P=0.57 | R=0.43  
+  - [TEST] Acc=0.62 | AUC=0.661 | PR-AUC=0.535 | Brier=0.289 | P=0.57 | R=0.47  
+
  - **Paciente-nivel (thr≈0.20, recall≥0.90):**  
-  - [VAL] Recall=0.90 | Precision=0.60 | AUC=0.722  
-  - [TEST] Recall=0.80 | Precision=0.52 | AUC=0.724 
+Se evaluaron tres estrategias de pooling (`mean`, `max`, `wmean`).  
+  - Con **mean @0.5**: [VAL] AUC=0.722 | PR-AUC=0.634 | Acc=0.53 | P=0.42 | R=0.25  
+  - Con **max @0.5**: [VAL] AUC=0.664 | PR-AUC=0.539 | Acc=0.49 | P=0.45 | R=0.95  
+
+  Para un escenario clínico se fijó un **umbral bajo (thr≈0.204)** en validación, garantizando **recall ≥0.90**:  
+  - [VAL] AUC=0.722 | PR-AUC=0.634 | Acc=0.70 | P=0.60 | R=0.90  
+  - [TEST] AUC=0.724 | PR-AUC=0.606 | Acc=0.60 | P=0.52 | R=0.80  
+
+📌 Conclusión: la calibración isotónica estabiliza las probabilidades (mejor Brier score) y, con un umbral clínico bajo, se alcanzan **sensibilidades altas (R≈0.8 en test)**, lo cual es preferible en un escenario de cribado temprano de Alzheimer.
 
 **Reflexión:**  
 La calibración ayudó a controlar la sobreconfianza, pero los resultados son inferiores a ResNet50.  
+
+---
+
+# 📊 Comparativa Parcial P1-P5
+
+| Modalidad       | Dataset            | Modelo        | ROC-AUC | Notas |
+|-----------------|--------------------|---------------|---------|-------|
+| Clínico         | OASIS-2            | XGBoost       | 0.897   | Mejor tabular OASIS-2 |
+| Clínico Fusion  | OASIS-1+2          | LogReg        | 0.979   | Simple, interpretable |
+| Imágenes        | OASIS-2            | ResNet50 (5s) | 0.938   | Mejor en MRI |
+| Clínico Fusion  | OASIS-1+2 Ensemble | LR+RF+XGB     | 0.995   | **Mejor global** |
 
 ---
 
@@ -330,7 +522,7 @@ Confirma que la estabilidad no siempre se traduce en mejor rendimiento.
 
 ### P10: COGNITIVA-AI-FINETUNING-STABLE-PLUS (EffNet-B3 con calibración extendida)
 
-- **Motivación:** El pipeline 9 (Stable) aportaba estabilidad, pero arrastraba problemas de correspondencia entre checkpoints y arquitectura, además de no incluir calibración explícita. Pipeline 10 surge para **normalizar completamente el checkpoint, asegurar compatibilidad de pesos (99.7% cargados) y aplicar calibración final** (*temperature scaling*) : aplicar calibración explícita para corregir sobreconfianza.  
+- **Motivación:** El pipeline 9 (Stable) aportaba estabilidad, pero arrastraba problemas de correspondencia entre checkpoints y arquitectura, además de no incluir calibración explícita. Pipeline 10 surge para **normalizar completamente el checkpoint, asegurar compatibilidad de pesos (99.7% cargados) y aplicar calibración final** (*temperature scaling*) : aplicar calibración explícita (Platt scaling, temperature scaling) para corregir sobreconfianza.
 - **Método:** Platt scaling, isotonic regression y temperature scaling. 
 - **Configuración técnica:**  
   - Arquitectura: EfficientNet-B3 con salida binaria.  
@@ -354,7 +546,9 @@ Confirma que la estabilidad no siempre se traduce en mejor rendimiento.
 
 **Conclusión:** el pipeline 10 logra **recall=1.0 en test bajo todos los métodos de pooling**, lo que lo convierte en la opción más sensible para cribado clínico temprano, aunque con sacrificio en AUC y precisión. Cierra la etapa de *solo MRI* antes de avanzar a la fusión multimodal.
 
-➡️ Aunque los valores AUC bajaron frente a Pipeline 9, se gana **robustez en calibración y recall=1.0** bajo distintos métodos de pooling.  
+➡️ Aunque los valores AUC bajaron frente a Pipeline 9, se gana **robustez en calibración y recall=1.0** bajo distintos métodos de pooling: Recall alto pero precisión baja
+
+**Observación:**  Se documentan dificultades de estabilidad y saturación de logits.
 
 **Reflexión:**  
 La calibración ayudó a controlar la sobreconfianza pero sacrificó precisión.  
@@ -471,7 +665,7 @@ Tras comprobar que la estrategia de ensembles por semillas (*seed ensembles*) no
   - Stacking LR sobre seeds: Test AUC ~0.75  
 
 **Reflexión:**  
-El ensemble aporta mejoras modestas pero consistentes. Se consolida como estrategia útil.  
+El ensemble aporta mejoras modestas pero consistentes. Se consolida como estrategia útil. El ensembling estabiliza pero no revoluciona.
 
 ---
 
@@ -499,7 +693,7 @@ El ensemble aporta mejoras modestas pero consistentes. Se consolida como estrate
 - Necesidad de armonizar columnas (`y_score` vs `sigmoid(logit)`).  
 
 **Reflexión:**  
-Ningún backbone supera claramente a EfficientNet-B3.  
+Ningún backbone supera claramente a EfficientNet-B3,  aunque ResNet50 y SwinTiny muestran competitividad parcial.
 La vía lógica pasa a ser **ensembles de backbones**.  
 
 ---
@@ -544,6 +738,13 @@ Tras probar diferentes arquitecturas como alternativa a EfficientNet-B3, resumim
 ---
 
 ### P12: **COGNITIVA-AI-BACKBONES-ENSEMBLE (Ensemble de backbones)**
+
+/1. **EfficientNet-B3** sigue siendo el backbone más robusto y estable en este dataset.  
+2. **ResNet-50** es competitivo y sorprendentemente sólido en comparación con modelos más recientes.  
+3. **DenseNet-121** no ha mostrado buen rendimiento en este dominio.  
+4. **ConvNeXt y Swin** presentan interés, pero su rendimiento es irregular y dependiente del pooling.  
+5. Los **ensembles de backbones** son prometedores pero, en este dataset pequeño, sufren de sobreajuste y métricas inconsistentes.  
+6. El trade-off entre **recall alto y precisión baja** es recurrente y debe tenerse en cuenta para aplicaciones clínicas.  
 
 ---
 
@@ -1099,27 +1300,42 @@ streamlit run app.py
 
 ---
 
-## Desafíos principales
+## ⚠️ Desafíos principales del proyecto
 
 1. **Pequeño tamaño de dataset**:  
-   - Solo ~47 pacientes en test.  
+   -  Pocas muestras en comparación con el tamaño de los modelos: Solo ~47 pacientes en test.  
    - Variabilidad extrema en métricas según fold.  
    - Riesgo de overfitting altísimo.  
+   - Cohorte no balanceada.  
+   - Dificultad para extraer conclusiones generalizables. 
 
-2. **Saturación de logits**:  
+2. **Slices 2D** no capturan plena continuidad 3D de las imágenes MRI.
+
+3. **Saturación de logits**:  
    - En P9 y P10, los logits alcanzaban valores >500k, obligando a normalización y calibración.  
 
-3. **Problemas de montaje de Google Drive en Colab**:  
-   - Errores de “Mountpoint must not already contain files” tras semanas sin reinicio.  
-   - Necesidad de reiniciar entorno completo.  
+4. **Problemas técnicos en Colab/Drive**:  
+   - Fallos frecuentes en el montaje de Google Drive.  
+   - Archivos no detectados hasta reiniciar entornos.  
+   - Interrupciones en ejecuciones largas.  
 
-4. **Dispersión de ficheros de predicción**:  
+5. **Estabilidad de entrenamiento**  
+   - Seeds distintos producían resultados muy dispares.  
+   - Necesidad de normalizar logits y calibrar salidas.  
+   - **CLAHE** puede perjudicar patrones de intensidad sutiles (dependiente de parámetros y de sujeto). 
+   - Diferencia CV vs Test en clínico sugiere **optimismo** por búsqueda de hiperparámetros (normal/esperable).
+
+6. **Dispersión de ficheros de predicción**:  
    - Algunos outputs generados como `*_png_preds`, otros como `*_slice_preds`.  
    - Diferencias en columnas (`y_score`, `sigmoid(logit)`, `pred`).  
 
-5. **Gestión de ensembles**:  
+7. **Gestión de ensembles**:  
    - Decidir entre averaging, stacking, random search de pesos.  
    - Validación compleja con tan pocos pacientes.  
+
+8. **Recall vs Precisión**  
+   - Muchos modelos sacrifican precisión para alcanzar recall de 1.0.  
+   - En contexto clínico, esto puede ser aceptable, pero requiere más refinamiento de umbrales.  
 
 ---
 
