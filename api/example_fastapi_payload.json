@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "clinical": {
+        "patient_id": "X001",
+        "cohort": "OAS1",
+        "Age": 72,
+        "Sex": "F",
+        "MMSE": 28
+      },
+      "features": {
+        "oas2_effb3_p14_mean": 0.71,
+        "slice_preds_plus_mean": 0.55
+      }
+    },
+    {
+      "clinical": {
+        "patient_id": "X002",
+        "cohort": "OAS2",
+        "Age": 76,
+        "Sex": "M",
+        "MMSE": 22
+      },
+      "p_img": 0.63
+    }
+  ]
+}
