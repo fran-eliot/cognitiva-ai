@@ -39,6 +39,90 @@ La enfermedad de Alzheimer es silenciosa: cuando los síntomas son claros… ya 
 
 ---
 
+### 5️⃣ El futuro multimodal
+- Narrativa: El siguiente paso es **fusionar clínico + MRI**.  
+- Visual sugerido: ilustración de dos ríos uniéndose en uno solo 🌊.  
+- Mensaje clave: la verdadera fuerza está en lo multimodal, imitando la **intuición clínica**.
+
+---
+
+### 6️⃣ Cierre emocional
+- Narrativa: “Detectar el Alzheimer antes no es solo un reto técnico: es **dar tiempo de calidad a millones de familias**.”
+- Visual sugerido: familia abrazando a un abuelo.
+- Mensaje clave: COGNITIVA-AI no solo predice, **da esperanza**.
+
+---
+
+## 2. Borrador de Slides
+
+> **Nota**: cada slide debe tener **poco texto, gráficos/visuales potentes, y un título llamativo**.  
+> El guion narrativo servirá para lo que el ponente cuenta mientras se muestran.
+
+### Slide 1: Título
+- “🧠 COGNITIVA-AI: Detección temprana de Alzheimer con IA Multimodal”
+- Visual: logo del proyecto + imagen evocadora de cerebro.
+
+### Slide 2: El problema invisible
+- Texto breve:  
+  “Cada 3 segundos alguien desarrolla demencia.  
+   Cuando los síntomas son visibles… es tarde.”
+- Visual: reloj de arena / rostro desenfocado.
+
+### Slide 3: El reto clínico
+- Dos columnas:  
+  - Izq: Datos clínicos 🧾  
+  - Der: MRI 🧠  
+- Texto: “¿Y si la IA pudiera combinarlos como un neurólogo experto?”
+
+### Slide 4: Nuestra propuesta
+- Timeline de los **6 pipelines** (imagen `pipelines_timeline.png`).
+- Texto breve: “De modelos clásicos → a redes calibradas en GPU.”
+
+### Slide 5: Descubrimientos (Clínico)
+- Bullet corto:  
+  - AUC≈0.98 con OASIS-1+2.  
+  - CDR + MMSE son clave.  
+- Visual: gráfico comparativa clínica.
+
+### Slide 6: Descubrimientos (MRI)
+- Bullet corto:  
+  - ResNet50 baseline: AUC=0.938.  
+  - ResNet18 calibrado: Recall≈0.80.  
+  - Mejor: Ensemble XGB+MLP.  
+- Visual: gráficos AUC/PR-AUC MRI.
+
+### Slide 7: Comparativa Global
+- Visual: gráfico `global_auc_comparison.png`.
+- Texto breve: “Clínico más fuerte, MRI añade valor para cribado temprano.”
+
+### Slide 8: El futuro multimodal
+- Visual: fusión de ríos 🌊 o cerebro con dos mitades uniéndose.  
+- Texto breve: “Clínico + MRI → IA que imita la intuición médica.”
+
+### Slide 9: Cierre emocional
+- Texto grande:  
+  “No es solo un reto técnico…  
+   Es dar tiempo de calidad a millones de familias.”  
+- Visual: familia abrazando a un abuelo.
+
+---
+
+## 3. Consideraciones para la Presentación
+
+- **Duración sugerida:** 7–10 min.  
+- **Ritmo narrativo:** 1–1.5 min por cada acto del storytelling.  
+- **Estilo de slides:** poco texto, usar imágenes y los gráficos que ya tenemos.  
+- **Emoción final:** cerrar con esperanza y utilidad social (impacto en pacientes y familias).  
+- **Tip técnico:** evitar sobrecargar al público con métricas → solo destacar AUC, PR-AUC, Recall.  
+
+---
+
+# ✅ Conclusión
+Este documento sirve como guion + storyboard inicial.  
+De aquí se puede pasar fácilmente a **PowerPoint/Google Slides/Canva** usando las visualizaciones y frases clave.
+
+----
+
 ## 🧩 Capítulo final: la consolidación del Fine-Tuning en GPU
 Tras varios intentos de ajuste y depuración, el equipo consolida el **fine‑tuning de EfficientNet‑B3 en Colab GPU**.  
 El modelo alcanza **sensibilidad perfecta (recall=1.0)** en validación y test, con **AUC de 0.876 y PR‑AUC de 0.762 en test**.  
