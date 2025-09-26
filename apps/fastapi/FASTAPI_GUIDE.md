@@ -13,6 +13,14 @@ API para servir predicciones **intermodales** (imagen + clínico) con **fusión 
 
 ---
 
+## Flujo
+1) Imagen → `p_img` (o `features` → P24 + Platt opcional)  
+2) Clínico → `p_clin` (P26)  
+3) Fusión LATE → `(p_img + p_clin)/2`  
+4) Decisión S2 → umbral por cohorte desde `deployment_config.json`
+
+---
+
 ## Estructura de proyecto esperada
 ```
 p26_release/

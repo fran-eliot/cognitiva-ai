@@ -1,0 +1,19 @@
+{
+  "policy": "single",
+  "cost_policy": "FN:FP=5:1",
+  "thresholds": {
+    "OAS1": 0.42,
+    "OAS2": 0.49
+  },
+  "thresholds_5to1": {
+    "OAS1": 0.42,
+    "OAS2": 0.49
+  },
+  "thresholds_recall_target": {
+    "OAS2": {
+      "target": 0.85,
+      "thr_val": 0.4928655287824083,
+      "found": true
+    }
+  }
+}

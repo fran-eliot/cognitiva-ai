@@ -1,0 +1,45 @@
+{
+  "fields": [
+    {
+      "name": "Age",
+      "dtype": "float"
+    },
+    {
+      "name": "Sex",
+      "dtype": "str",
+      "allowed": [
+        "M",
+        "F"
+      ]
+    },
+    {
+      "name": "Education",
+      "dtype": "float"
+    },
+    {
+      "name": "SES",
+      "dtype": "float"
+    },
+    {
+      "name": "MMSE",
+      "dtype": "float"
+    },
+    {
+      "name": "eTIV",
+      "dtype": "float"
+    },
+    {
+      "name": "nWBV",
+      "dtype": "float"
+    },
+    {
+      "name": "ASF",
+      "dtype": "float"
+    },
+    {
+      "name": "Delay",
+      "dtype": "float"
+    }
+  ],
+  "notes": "Sex se normaliza a {'M','F'} internamente; num\u00e9ricos con imputaci\u00f3n mediana + StandardScaler."
+}

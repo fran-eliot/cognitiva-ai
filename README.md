@@ -165,7 +165,7 @@ A continuación, se detallan los diferentes pipelines experimentales desarrollad
 
 ---
 
-### P1: COGNITIVA-AI-CLINIC (datos clínicos solo OASIS-2) 
+### P1: P1-COGNITIVA-AI-CLINIC (datos clínicos solo OASIS-2) 
 
 - **Motivación:** establecer un baseline sólido con datos tabulares clínicos. 
 ### 🧹 Preprocesamiento
@@ -282,7 +282,6 @@ La fusión clínica alcanza casi techo de rendimiento en esta cohorte. Refuerza 
 - **Normalización** 0–255, opción de **CLAHE**, y **z-score por slice**.  
 - **Data augmentation** (train): flips, rotaciones ±10°, jitter ligero.  
 - **Evaluación por paciente**: promediado de probabilidades por `scan_id`.
-- **Pipeline**: conversión `.hdr/.img` a cortes axiales (slices), normalización [0–255], augmentations ligeros.
 
 - **Modelo:** ResNet50 preentrenado en ImageNet, fine-tuning en OASIS-2.  
 - **Resultados:**  
@@ -320,37 +319,7 @@ Dependiente del preprocesamiento y costoso en CPU.
 
 ---
 
-### 🔹 Clínico – OASIS-2 (tabular)
-
-| Modelo / Variante                      | Validación (CV 5-fold)         | Test hold-out | Notas |
-|---------------------------------------|---------------------------------|---------------|-------|
-| Logistic Regression (baseline)        | **0.912 ± 0.050**               | 0.911 (AUC)   | Split inicial; buen baseline y muy estable |
-| Random Forest (balanced)              | **0.925 ± 0.032**               | —             | CV alto con `class_weight` |
-| XGBoost (default)                     | **0.907 ± 0.032**               | —             | Buen baseline |
-| **RF (GridSearchCV, mejor)**          | **0.922**                       | —             | Ajuste clásico |
-| **RF (Alg. Genético, mejor)**         | **0.922**                       | —             | DEAP; rendimiento parejo al grid |
-| **XGBoost (Alg. Genético, mejor)**    | **0.922**                       | —             | GA efectivo |
-| **RF (optimizado, test)**             | —                               | **0.884**     | Test de referencia |
-| **XGBoost (optimizado, test)**        | —                               | **0.897**     | **Mejor en test** |
-
-> *Métricas clínicas: ROC-AUC. El test se hizo con un split estratificado y honesto por paciente.*
-
----
-
-### 🔹 Imágenes – OASIS-2 (ResNet50, nivel **paciente**)
-
-| Slices | Preprocesamiento                 | Train Acc | Val Acc | **Test Acc** | **ROC-AUC** | Comentarios |
-|-------:|----------------------------------|----------:|--------:|-------------:|------------:|-------------|
-| **5**  | **Sin CLAHE**                    | ~0.94     | ~0.73   | **0.89**     | **0.938**   | **Mejor AUC**; baseline fuerte |
-| 5      | CLAHE                            | ~0.95     | ~0.72   | 0.69         | 0.777       | Realce local perjudicó patrones sutiles |
-| 5      | CLAHE + z-score (slice)          | ~0.96     | ~0.75   | 0.72         | 0.820       | Recupera parte del rendimiento |
-| **20** | CLAHE + z-score (slice)          | **0.98**  | ~0.71   | **0.80**     | **0.858**   | Más cobertura anatómica; mejor recall |
-
-> **Conclusión OASIS-2 (imágenes):** el **baseline 5 slices sin CLAHE** obtuvo el **mejor AUC (0.938)**; usar más slices (20) mejora robustez y recall pero no supera ese AUC en nuestro test.
-
----
-
-### P4: COGNITIVA-AI-IMAGES-IMPROVED (MRI OASIS-1/2)
+### P4-COGNITIVA-AI-IMAGES-IMPROVED (MRI OASIS-1/2)
 
 - Objetivo: fusionar OASIS-1 y OASIS-2 en imágenes.  
 - Ventaja: aumentar el número de pacientes y la robustez del modelo.  
@@ -387,7 +356,7 @@ Pipeline más robusto, pero alto coste computacional en CPU.
 
 ---
 
-### P5: COGNITIVA-AI-IMAGES-IMPROVED-GPU – ResNet18 calibrado
+### P5-COGNITIVA-AI-IMAGES-IMPROVED-GPU – ResNet18 calibrado
 
 - **Motivación:** probar backbone más ligero en entorno Colab (para usar GPUs).  
 - **Modelo:** ResNet18 (512D) con calibración posterior.
@@ -426,7 +395,7 @@ La calibración ayudó a controlar la sobreconfianza, pero los resultados son in
 
 ---
 
-### P6: MCOGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATE – EfficientNet-B3 embeddings
+### P6-COGNITIVA-AI-IMAGES-IMPROVED-GPU-CALIBRATED – EfficientNet-B3 embeddings
 
 - **Motivación:** usar EfficientNet-B3 solo como extractor de embeddings, sin fine-tuning completo.  
 - **Embeddings EfficientNet-B3 (1536D)**.  
@@ -441,7 +410,7 @@ Como extractor simple ya supera ResNet18 calibrado, confirmando potencia de Effi
 
 ---
 
-### P7: COGNITIVA-AI-FINETUNING (EfficientNet-B3 Fine-Tuning parcial)
+### P7-COGNITIVA-AI-FINETUNING (EfficientNet-B3 Fine-Tuning parcial)
 
 - **Motivación:** pasar a fine-tuning completo de EfficientNet-B3.  
 - **Modelo:** EfficientNet-B3 pre-entrenado (Imagenet) con última(s) capas descongeladas y reentrenadas sobre MRI OASIS-2.
@@ -471,7 +440,7 @@ Uno de los mejores backbones en imagen pura. Supone el nuevo baseline de referen
 
 ---
 
-### P8: COGNITIVA-AI-IMAGES-FT-IMPROVED (Calibración y ajustes Fine-tune)
+### P8-COGNITIVA-AI-IMAGES-FT-IMPROVED (Calibración y ajustes Fine-tune)
 
 - **Calibración de probabilidades:**  se aplicó `Temperature Scaling` en validación para corregir el sesgo de confianza del modelo (evitando técnicas prefit con riesgo de fuga de datos).
 - **Pooling óptimo:** la agregación por *atención* superó ligeramente al promedio en métricas de validación (PR-AUC), por lo que se adoptó para el pipeline final.
@@ -486,7 +455,7 @@ Uno de los mejores backbones en imagen pura. Supone el nuevo baseline de referen
 
 ---
 
-### P9: COGNITIVA-AI-FINETUNING-STABLE – EfficientNet-B3 stable (Fine Tunning + Umbral Clínico)
+### P9-COGNITIVA-AI-FINETUNING-STABLE – EfficientNet-B3 stable (Fine Tunning + Umbral Clínico)
 
 - **Motivación:** estabilizar entrenamientos previos de EfficientNet-B3.  
 - **Pooling paciente:** mean  
@@ -506,7 +475,7 @@ Uno de los mejores backbones en imagen pura. Supone el nuevo baseline de referen
 
 ➡️ Mejor pipeline MRI logrado: se detectan el 100% de los casos positivos en test (sin falsos negativos) al costo de algunos falsos positivos (precision ~62%). El modelo fine-tune calibrado ofrece así alta sensibilidad adecuada para cribado clínico, acercando el rendimiento MRI al nivel de los datos clínicos puros.
 
-- **Resultados finales:**  
+- **Resultados finales:*+*  
   - AUC (Test): 0.740  
   - PR-AUC: 0.630  
   - Recall más bajo que en P7.  
@@ -520,7 +489,7 @@ Confirma que la estabilidad no siempre se traduce en mejor rendimiento.
 
 ---
 
-### P10: COGNITIVA-AI-FINETUNING-STABLE-PLUS (EffNet-B3 con calibración extendida)
+### P10-COGNITIVA-AI-FINETUNING-STABLE-PLUS (EffNet-B3 con calibración extendida)
 
 - **Motivación:** El pipeline 9 (Stable) aportaba estabilidad, pero arrastraba problemas de correspondencia entre checkpoints y arquitectura, además de no incluir calibración explícita. Pipeline 10 surge para **normalizar completamente el checkpoint, asegurar compatibilidad de pesos (99.7% cargados) y aplicar calibración final** (*temperature scaling*) : aplicar calibración explícita (Platt scaling, temperature scaling) para corregir sobreconfianza.
 - **Método:** Platt scaling, isotonic regression y temperature scaling. 
@@ -739,7 +708,7 @@ Tras probar diferentes arquitecturas como alternativa a EfficientNet-B3, resumim
 
 ### P12: **COGNITIVA-AI-BACKBONES-ENSEMBLE (Ensemble de backbones)**
 
-/1. **EfficientNet-B3** sigue siendo el backbone más robusto y estable en este dataset.  
+1. **EfficientNet-B3** sigue siendo el backbone más robusto y estable en este dataset.  
 2. **ResNet-50** es competitivo y sorprendentemente sólido en comparación con modelos más recientes.  
 3. **DenseNet-121** no ha mostrado buen rendimiento en este dominio.  
 4. **ConvNeXt y Swin** presentan interés, pero su rendimiento es irregular y dependiente del pooling.  
@@ -808,7 +777,7 @@ Tras probar diferentes arquitecturas como alternativa a EfficientNet-B3, resumim
 - Umbral optimizado en validación para F1 (0.35), aplicado después en test.  
 - Métricas adicionales: **Brier Score** para evaluar calibración.  
 
-**Resultados (VAL/TEST):**  
+**R+esultados (VAL/TEST):**  
 - [VAL] AUC≈0.78 | Acc≈0.74 | Recall≈0.94 | F1≈0.76 | Brier=0.176  
 - [TEST] AUC≈0.70 | Acc≈0.63 | Recall≈0.78 | F1≈0.66 | Brier=0.227  
 
@@ -1025,13 +994,6 @@ _Artefactos_: `p24_val_preds.csv`, `p24_test_preds.csv`, `p24_coefficients.csv`,
 - Predicciones demo: `p25_predictions_labeled.csv` / `p25_predictions_unlabeled.csv`.
 
 **Release reproducible:** `p25_release/` → `MANIFEST.json`, `ENVIRONMENT.json`, `MODEL_CARD.md` + artefactos P19/P23/P24.
-
----
-
-### ▶️ Cómo ejecutar inferencia (rápido)
-- **Un paciente:** en Colab, tras cargar P24/P25, ejecuta `predict_patient("OAS1_0002")` (devuelve `proba_cal`, cohorte y `y_pred` con umbral por cohorte).
-- **Lote:** ejecuta la celda “Batch en todos los pacientes” → guarda `p25_informe_final/p25_inference_demo.csv`.
-- **Comprobar métricas:** ejecuta la celda P (verificación) → `p25_informe_final/p25_inference_demo_eval.csv` (AUC/PR/Brier + confusión por cohorte).
 
 ---
 
@@ -1302,77 +1264,129 @@ streamlit run app.py
 
 ## ⚠️ Desafíos principales del proyecto
 
-1. **Pequeño tamaño de dataset**:  
-   -  Pocas muestras en comparación con el tamaño de los modelos: Solo ~47 pacientes en test.  
-   - Variabilidad extrema en métricas según fold.  
-   - Riesgo de overfitting altísimo.  
-   - Cohorte no balanceada.  
-   - Dificultad para extraer conclusiones generalizables. 
+> **En dos frases:** trabajamos con pocos pacientes y con dos grupos de datos distintos (OASIS-1 y OASIS-2). Para que el sistema sea útil en cribado, priorizamos **no perdernos casos** (alto *recall*) y usamos **umbrales por cohorte** y **probabilidades calibradas** que hagan la decisión más fiable.
 
-2. **Slices 2D** no capturan plena continuidad 3D de las imágenes MRI.
+1) **Pocas personas en el estudio**  
+   - **Qué significa:** las métricas pueden variar mucho y es fácil “aprenderse” el conjunto de entrenamiento.  
+   - **Cómo lo abordamos:** validación repetida, intervalos por *bootstrap* y decisiones conservadoras (umbrales por cohorte).
 
-3. **Saturación de logits**:  
-   - En P9 y P10, los logits alcanzaban valores >500k, obligando a normalización y calibración.  
+2) **Dos cohortes distintas (OASIS-1 vs OASIS-2)**  
+   - **Qué significa:** no se comportan igual (protocolo, población, prevalencia). Un único umbral puede fallar.  
+   - **Cómo lo abordamos:** política **S2** con **umbrales específicos por cohorte** y exigencia de **recall ≥ 0.90** en OAS2 (cribado).
 
-4. **Problemas técnicos en Colab/Drive**:  
-   - Fallos frecuentes en el montaje de Google Drive.  
-   - Archivos no detectados hasta reiniciar entornos.  
-   - Interrupciones en ejecuciones largas.  
+3) **Etiquetas clínicas “aproximadas”**  
+   - **Qué significa:** en OASIS-2 usamos *Group* y en OASIS-1 derivamos el diagnóstico desde CDR; puede haber ruido.  
+   - **Cómo lo abordamos:** decisiones **sensibles al coste** (penalizamos más los falsos negativos) y revisión de coherencia.
 
-5. **Estabilidad de entrenamiento**  
-   - Seeds distintos producían resultados muy dispares.  
-   - Necesidad de normalizar logits y calibrar salidas.  
-   - **CLAHE** puede perjudicar patrones de intensidad sutiles (dependiente de parámetros y de sujeto). 
-   - Diferencia CV vs Test en clínico sugiere **optimismo** por búsqueda de hiperparámetros (normal/esperable).
+4) **Imágenes 2D simplificadas**  
+   - **Qué significa:** usamos 20 cortes axiales por MRI (más rápido y barato), pero perdemos parte del contexto 3D.  
+   - **Cómo lo abordamos:** agregación robusta por paciente y, a futuro, exploración de 2.5D/3D.
 
-6. **Dispersión de ficheros de predicción**:  
-   - Algunos outputs generados como `*_png_preds`, otros como `*_slice_preds`.  
-   - Diferencias en columnas (`y_score`, `sigmoid(logit)`, `pred`).  
+5) **Huecos y variabilidad en los datos clínicos**  
+   - **Qué significa:** algunas variables faltan o se miden de forma desigual; ciertas pruebas (CDR/MMSE) se parecen al objetivo.  
+   - **Cómo lo abordamos:** **imputación simple**, controles anti-fugas y combinación con la señal de imagen (fusión *Late*).
 
-7. **Gestión de ensembles**:  
-   - Decidir entre averaging, stacking, random search de pesos.  
-   - Validación compleja con tan pocos pacientes.  
+6) **Calibración dependiente del centro**  
+   - **Qué significa:** la probabilidad “0.7” no siempre significa lo mismo en todos los sitios; en OAS2 se descalibra más.  
+   - **Cómo lo abordamos:** **calibración Platt** y **monitoreo de ECE**; política S2 con umbrales por cohorte y plan de **recalibrar** si cambia el entorno.
 
-8. **Recall vs Precisión**  
-   - Muchos modelos sacrifican precisión para alcanzar recall de 1.0.  
-   - En contexto clínico, esto puede ser aceptable, pero requiere más refinamiento de umbrales.  
+7) **Generalización fuera de OASIS (validación externa)**  
+   - **Qué significa:** aún no probamos en otros hospitales/bancos de datos (ADNI/AIBL).  
+   - **Cómo lo abordamos:** empaquetado reproducible (**release** con modelos, configuración y QA) y plan de evaluación externa.
 
----
+8) **Explicabilidad clínica**  
+   - **Qué significa:** además de acertar, hay que **explicar** por qué.  
+   - **Cómo lo abordamos:** metamodelo interpretable (coeficientes) y hoja de ruta para añadir mapas de saliencia (Grad-CAM/SHAP).
 
-## Lecciones aprendidas
+9) **Robustez y estabilidad**  
+   - **Qué significa:** el rendimiento puede cambiar con ruido, rotaciones o distintos escáneres.  
+   - **Cómo lo abordamos:** intervalos por *bootstrap* y pruebas de coste; próximos pasos con *stress tests* y estimación de incertidumbre.
 
-- **Los datos clínicos son extremadamente informativos** en OASIS; **imagen** aporta **complementariedad** que se capitaliza mejor con **fusión Late** + **calibración**.  
-- **EfficientNet-B3** sigue siendo el backbone más consistente en MRI.  
-- **La calibración es necesaria** pero puede sacrificar precisión.  
-- **Los ensembles ayudan modestamente**, pero su efecto depende de la diversidad real de los modelos.  
-- **La organización de outputs es crítica**: nombres consistentes ahorran horas de debugging.  
-- **El reinicio periódico de Colab** evita errores de montaje y rutas fantasmas.  
-- **Pequeño N** exige OOF sin fuga, control de NaNs y *reporting* honesto (incl. coste).
+10) **Decisión clínica: *Recall* vs *Precisión***  
+   - **Qué significa:** si queremos **no perdernos casos** (alto *recall*), aceptamos más falsos positivos.  
+   - **Cómo lo abordamos:** política **S2** (FN cuestan 5× FP) y **umbrales** transparentes por cohorte; los centros pueden ajustarlos.
 
 ---
 
-## Limitaciones y Próximos pasos
+### Glosario rápido
+- **Recall (sensibilidad):** de los casos reales, cuántos detecto. En cribado, es lo más importante.  
+- **Precisión:** de los casos marcados como “positivo”, cuántos lo son de verdad.  
+- **AUC:** medida global de separación entre sanos y enfermos (orientativa, no define el umbral clínico).  
+- **Brier:** calidad de la probabilidad (más bajo, mejor).  
+- **Calibración (ECE):** cuán bien “significan” las probabilidades (p.ej., que 0.7 ≈ 70% de acierto).
 
-1. **Consolidar ensembles de backbones**:  
-   - Probar combinaciones más ricas (ResNet+EffNet+Swin).  
-   - Usar stacking con regularización fuerte.  
-
-2. **Explorar multimodal**:  
-   - Fusionar clínico + MRI.  
-   - Comparar si mejora sobre clínico solo.  
-
-3. **Descalibración en OAS2**: monitorizar **ECE/MCE** y **recalibrar** periódicamente. 
-
-4. **Validación externa**:  
-   -  **N reducido** (OAS2) → CIs amplios; ideal **validación externa** (p.ej., ADNI).  
-   - Usar datasets adicionales (ADNI, etc.) para comprobar generalización.  
-
-5. **Optimización final**:  
-   - Revisar hiperparámetros con Bayesian Optimization.  
-   - Estudiar interpretabilidad (Grad-CAM, SHAP).  
+> **Mensaje clave:** el AUC informa; **el umbral decide**. En cribado, **priorizamos el *recall*** y ajustamos la decisión al **coste clínico** y a la **cohorte**.
 
 ---
 
+## ✅ Lecciones aprendidas
+ 
+- **La clínica “explica mucho”** en OASIS; la **imagen suma** y ayuda a tomar una **mejor decisión** cuando se combinan (fusión *Late*).  
+- **Probabilidades calibradas** + **umbrales por cohorte** hacen la decisión **predecible** y alineada con el **coste clínico**.  
+- No todo es AUC: para **cribado** importa **no perdernos casos** (alto *recall*). Por eso adoptamos una **política S2** que penaliza más los falsos negativos.  
+- **Modelos más simples** (regresión regularizada) generalizan mejor en conjuntos pequeños que ensamblados complejos.  
+- **Estandarizar nombres y rutas** de archivos evita errores y acelera el trabajo.  
+- Con datos pequeños, es clave **repetir validaciones**, controlar faltantes y reportar **incertidumbre**.
+
+---
+
+## 🧭 Decisiones clave 
+
+- **Modelo final**: combinación **imagen + clínica** (fusión *Late*) con **probabilidades calibradas**.  
+- **Política S2** por cohorte:  
+  - Base **5:1** (falso negativo cuesta 5× que un falso positivo).  
+  - **OAS2** exige **Recall ≥ 0.90** por ser un contexto más difícil.  
+  - Umbrales activos: **OAS1=0.42**, **OAS2≈0.493**.  
+- **Entrega reproducible**: *release* con modelos, configuración, QA y guía de uso (Streamlit/FastAPI).  
+- **Próximo foco**: probar en **otros centros** y **recalibrar** si el entorno cambia.
+
+
+---
+
+## Conclusiones Globales 
+
+- **Objetivo logrado:** un sistema **intermodal** (datos clínicos + MRI) pensado para **cribado**, que usa **probabilidades calibradas** y **umbrales por cohorte** para tomar decisiones **con sentido clínico**.
+- **Imagen + clínica se complementan:** la clínica “explica mucho” en OASIS; la imagen aporta una señal **extra** que ayuda a decidir mejor cuando se **combinan** (fusión *Late*).
+- **No todo es AUC:** en cribado importa **no perdernos casos**. Por eso aplicamos la **política S2** (falsos negativos cuestan 5× que falsos positivos) con **umbrales por cohorte** y **Recall≥0.90 en OAS2**.
+  - **OAS1** (umbral **0.42**): **Recall=0.70**, Prec=0.61, Acc=0.68.  
+  - **OAS2** (umbral **≈0.493**): **Recall≈0.92**, Prec≈0.65, Acc≈0.70.
+- **Calibración razonable:** las probabilidades reflejan bien la realidad (Brier ~0.22–0.24), aunque en OAS2 hay más **descalibración**, por lo que planificamos **recalibrar** si cambia el entorno.
+- **Listo para probar:** entregamos un **paquete reproducible** con modelos, configuración, QA y guías (incluye **Streamlit** y **FastAPI**) para que sea fácil evaluar e integrar.
+
+**En una frase:** COGNITIVA-AI prioriza la **detección temprana** con una decisión **transparente y ajustable** al coste clínico, combinando la **fortaleza de la clínica** con la **sensibilidad de la imagen**.
+
+---
+
+## Próximos pasos
+
+- **Probar en otros centros (validación externa):** repetir el estudio en bases como **ADNI/AIBL** y ajustar la **calibración** si cambia el entorno.
+- **Vigilar la calidad de las probabilidades:** seguir la **calibración (ECE)** y el **cambio de datos**; recalibrar cuando sea necesario.
+- **Mejorar la imagen 3D y la fusión:** explorar **2.5D/3D** y nuevas formas de combinar **MRI + clínica** que funcionen bien aunque falten datos.
+- **Añadir más clínica y evolución en el tiempo:** usar **tendencias** (por ejemplo, cambio de MMSE) y, si existen, **biomarcadores** o **genética (APOE)**.
+- **Decisión clínica más rica:** comparar políticas de decisión con **beneficio neto** y estudiar **doble umbral** para derivar casos dudosos a un especialista.
+- **Explicabilidad para el médico:** generar **informes por paciente** con los factores clínicos más relevantes y mapas visuales en la imagen.
+- **Robustez y seguridad:** probar el sistema con ruidos/rotaciones y estimar **incertidumbre**; ampliar un **conjunto de pruebas** de control.
+- **Listo para integrar:** empaquetar en **Docker**, exponer por **FastAPI**, registrar versiones y **auditar** cada predicción (qué umbral y política usó).
+- **Equidad:** revisar resultados por **edad/sexo/educación** y ajustar si detectamos brechas.
+- **Piloto real:** una prueba **radiologist-in-the-loop** con **PACS/RIS**, para mejorar etiquetas y medir impacto en la práctica clínica.
+
+> **Mensaje clave:** primero **comprobamos fuera**, luego **recalibramos** y **explicamos** mejor las decisiones, y finalmente **integramos** en el flujo clínico con seguridad y trazabilidad.
+
+---
+
+## Agradecimientos
+
+Este proyecto se basa en datos públicos de **OASIS** y tiene un propósito **académico** (no clínico).
+
+- “**Data were provided [in part] by OASIS**.”  
+- **OASIS-1 (Cross-Sectional)** — PIs: D. Marcus, R. Buckner, J. Csernansky, J. Morris
+  **Referencia:** Marcus et al., *Journal of Cognitive Neuroscience* (2007). **doi: 10.1162/jocn.2007.19.9.1498**  
+- **OASIS-2 (Longitudinal)** — PIs: D. Marcus, R. Buckner, J. Csernansky, J. Morris
+  **Referencia:** Marcus et al., *Journal of Cognitive Neuroscience* (2010). **doi: 10.1162/jocn.2009.21407**
+
+Agradecimientos a la **comunidad open-source** (Python, Scikit-learn, PyTorch, XGBoost/LightGBM, Streamlit, FastAPI, etc.) y al **profesor Valentín Silvestri** por su mentoría.
+
+> **Aviso:** los resultados son informativos y **no** deben usarse para diagnóstico ni decisiones clínicas sin validación y supervisión adecuadas.
 
 
 

@@ -1,0 +1,33 @@
+| Pipeline | Cohorte | Método | AUC | PR-AUC | Brier | Acc | Prec | Rec | Thr | Coste |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| P24 | ALL | Platt | 0.727 | 0.717 | 0.220 | nan | nan | nan | nan | nan |
+| P24 | OAS1 | Platt | 0.754 | 0.736 | 0.211 | nan | nan | nan | nan | nan |
+| P24 | OAS1 | cost-5:1 | 0.754 | 0.736 | 0.211 | 0.681 | 0.609 | 0.700 | 0.435 | 39.000 |
+| P24 | OAS2 | Platt | 0.750 | 0.805 | 0.238 | nan | nan | nan | nan | nan |
+| P24 | OAS2 | cost-5:1 | 0.750 | 0.805 | 0.238 | 0.652 | 0.611 | 0.917 | 0.332 | 12.000 |
+| P23 | OAS1 | isotonic | 0.743 | 0.657 | 0.223 | 0.574 | 0.500 | 0.950 | nan | 24.000 |
+| P23 | OAS1 | platt | 0.724 | 0.649 | 0.210 | 0.574 | 0.500 | 0.950 | nan | 24.000 |
+| P23 | OAS2 | isotonic | 0.500 | 0.522 | 0.250 | 0.522 | 0.522 | 1.000 | nan | 11.000 |
+| P23 | OAS2 | platt | 0.500 | 0.522 | 0.250 | 0.522 | 0.522 | 1.000 | nan | 11.000 |
+| P22 | ALL | HGB_iso | 0.666 | 0.605 | 0.239 | nan | nan | nan | nan | nan |
+| P22 | ALL | HGB_platt | 0.702 | 0.629 | 0.222 | nan | nan | nan | nan | nan |
+| P22 | ALL | LR_iso | 0.667 | 0.618 | 0.231 | nan | nan | nan | nan | nan |
+| P22 | ALL | LR_platt | 0.668 | 0.646 | 0.219 | nan | nan | nan | nan | nan |
+| P22 | OAS1 | HGB_iso | 0.705 | 0.640 | 0.234 | nan | nan | nan | nan | nan |
+| P22 | OAS1 | HGB_platt | 0.724 | 0.649 | 0.209 | nan | nan | nan | nan | nan |
+| P22 | OAS1 | LR_iso | 0.723 | 0.661 | 0.217 | nan | nan | nan | nan | nan |
+| P22 | OAS1 | LR_platt | 0.756 | 0.726 | 0.203 | nan | nan | nan | nan | nan |
+| P22 | OAS2 | HGB_iso | 0.500 | 0.522 | 0.250 | nan | nan | nan | nan | nan |
+| P22 | OAS2 | HGB_platt | 0.500 | 0.522 | 0.250 | nan | nan | nan | nan | nan |
+| P22 | OAS2 | LR_iso | 0.500 | 0.522 | 0.259 | nan | nan | nan | nan | nan |
+| P22 | OAS2 | LR_platt | 0.504 | 0.524 | 0.252 | nan | nan | nan | nan | nan |
+| P19 | ALL | XGBClassifier | 0.671 | 0.606 | 0.292 | nan | nan | nan | nan | nan |
+| P19 | OAS1 | XGBClassifier | 0.663 | 0.588 | 0.310 | nan | nan | nan | nan | nan |
+| P19 | OAS2 | XGBClassifier | 0.663 | 0.683 | 0.257 | nan | nan | nan | nan | nan |
+| Pipeline | Cohorte | Método | AUC | PR-AUC | Brier | Acc | Prec | Rec | Thr | Coste |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| P26 | ALL | LATE | 0.713 | 0.712 | 0.234 | nan | nan | nan | nan | nan |
+| P26 | OAS1 | LATE | 0.754 | 0.736 | 0.208 | nan | nan | nan | nan | nan |
+| P26 | OAS2 | LATE | 0.652 | 0.728 | 0.288 | nan | nan | nan | nan | nan |
+| P26 | OAS1 | cost-5:1 | — | — | — | 0.681 | 0.609 | 0.700 | 0.307 | 39.000 |
+| P26 | OAS2 | cost-5:1 | — | — | — | 0.652 | 0.667 | 0.667 | 0.195 | 24.000 |
